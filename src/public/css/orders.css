@@ -1,0 +1,146 @@
+/* Using your defined color palette from the previous snippet */
+:root {
+    --primary: #00bcd4;
+    --primary-dark: #00a5c4;
+    --secondary: #0d1b2a;
+    --accent: #2c3e50;
+    --light: #f4f6f8;
+    --dark: #333;
+    --gray: #64748b;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --border-radius: 10px;
+    --transition: all 0.3s ease;
+    --shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+body {
+    background-color: var(--light); /* Changed: Applied your light background */
+    color: var(--dark); /* Changed: Applied your dark text color */
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* Changed: Applied your font stack */
+    margin: 0;
+    padding: 0;
+}
+
+.dashboard-wrapper {
+    max-width: 1200px;
+    margin: 40px auto;
+    padding: 0 20px;
+}
+
+.orders-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 30px;
+    border-bottom: 1px solid rgba(0,0,0,0.1); /* Changed: Used subtle border instead of dark navy */
+    padding-bottom: 20px;
+}
+
+.orders-header h2 {
+    color: var(--primary); /* Changed: Applied your primary cyan */
+    margin: 0;
+    font-size: 1.8rem;
+}
+
+.orders-header p { 
+    color: var(--gray); /* Changed: Applied your gray */
+    margin: 5px 0 0; 
+}
+
+/* Filter Buttons */
+.filter-btn {
+    background: white; /* Changed: Default to white for your light theme */
+    border: 1px solid var(--gray); /* Changed: Use your gray variable */
+    color: var(--gray); /* Changed: Use your gray variable */
+    padding: 8px 16px;
+    margin-left: 10px;
+    border-radius: 20px; /* Changed: Applied your pill-style radius */
+    cursor: pointer;
+    transition: var(--transition); /* Changed: Applied your transition variable */
+}
+
+.filter-btn.active, .filter-btn:hover {
+    background: var(--primary); /* Changed: Applied your primary cyan */
+    color: white;
+    border-color: var(--primary);
+}
+
+/* Table Design */
+.table-container {
+    background: white; /* Changed: Applied white background for card style */
+    border-radius: var(--border-radius); /* Changed: Applied your border-radius */
+    box-shadow: var(--shadow); /* Changed: Applied your shadow */
+    overflow: hidden;
+}
+
+.orders-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.orders-table th {
+    background: var(--primary); /* Changed: Applied your primary cyan for headers */
+    color: white; /* Changed: White text for contrast */
+    text-align: left;
+    padding: 18px;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.orders-table td {
+    padding: 18px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05); /* Changed: Subtle border */
+    font-size: 0.95rem;
+    color: var(--secondary); /* Changed: Applied your secondary dark blue */
+}
+
+/* Status Badges */
+.status-pill {
+    padding: 4px 12px;
+    border-radius: 50px;
+    font-size: 0.75rem;
+    font-weight: bold;
+}
+
+.status-active { 
+    background: rgba(16, 185, 129, 0.1); 
+    color: var(--success); /* Changed: Applied your success green */
+}
+
+.status-completed { 
+    background: rgba(0, 188, 212, 0.1); 
+    color: var(--primary); /* Changed: Applied your primary cyan */
+}
+
+.status-cancelled { 
+    background: rgba(239, 68, 68, 0.1); 
+    color: var(--danger); /* Changed: Applied your danger red */
+}
+
+/* START: Simple Loading Spinner */
+.spinner {
+    width: 30px;
+    height: 30px;
+    border: 3px solid var(--light); /* Changed: Use light gray for track */
+    border-top: 3px solid var(--primary); /* Changed: Use your primary cyan for spinner */
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 20px auto;
+}
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+/* END: Spinner */
+
+/* Scrollbar styling - Added from your original requirements */
+::-webkit-scrollbar {
+    width: 8px;
+}
+::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-dark);
+}

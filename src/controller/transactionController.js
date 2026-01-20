@@ -1,242 +1,221 @@
 const Transaction = require('../models/Transaction');
 const Wallet = require('../models/Wallet');
 const { sequelize } = require('../config/database');
-const constants = require('../config/constants');
+const { Op, literal } = require('sequelize');
 const logger = require('../utils/logger');
 
 const transactionController = {
-  // Get all transactions with filters
+  // --- 1. ADDED: GET ALL TRANSACTIONS (Required by router.get('/')) ---
   getAllTransactions: async (req, res) => {
     try {
-      const { 
-        type, 
-        status, 
-        currency, 
-        startDate, 
-        endDate, 
-        page = 1, 
-        limit = 50,
-        sortBy = 'created_at',
-        sortOrder = 'DESC'
-      } = req.query;
-
-      const where = {};
-      const offset = (page - 1) * limit;
-
-      // Add filters
+      const { type, status } = req.query;
+      const where = { user_id: req.user.id };
       if (type) where.type = type;
       if (status) where.status = status;
-      if (currency) where.currency = currency.toUpperCase();
-      
-      if (startDate || endDate) {
-        where.created_at = {};
-        if (startDate) where.created_at[sequelize.Op.gte] = new Date(startDate);
-        if (endDate) where.created_at[sequelize.Op.lte] = new Date(endDate);
-      }
 
-      // For non-admin users, only show their transactions
-      if (req.user.role === 'user') {
-        where.user_id = req.user.id;
-      }
-
-      const { count, rows } = await Transaction.findAndCountAll({
+      const txs = await Transaction.findAll({
         where,
-        order: [[sortBy, sortOrder]],
-        limit: parseInt(limit),
-        offset: parseInt(offset),
-        include: [
-          {
-            model: require('../models/User'),
-            as: 'user',
-            attributes: ['id', 'email', 'first_name', 'last_name']
-          }
-        ]
+        order: [['createdAt', 'DESC']]
       });
-
-      // Calculate summary
-      const summary = await Transaction.findAll({
-        where,
-        attributes: [
-          'currency',
-          [sequelize.fn('SUM', sequelize.col('amount')), 'total_amount'],
-          [sequelize.fn('SUM', sequelize.col('fee')), 'total_fee'],
-          [sequelize.fn('COUNT', sequelize.col('id')), 'count']
-        ],
-        group: ['currency']
-      });
-
-      res.json({
-        success: true,
-        data: {
-          transactions: rows,
-          summary,
-          pagination: {
-            total: count,
-            page: parseInt(page),
-            limit: parseInt(limit),
-            pages: Math.ceil(count / limit)
-          }
-        }
-      });
+      res.json({ success: true, data: txs });
     } catch (error) {
-      logger.error(`Get all transactions error: ${error.message}`);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch transactions'
-      });
+      res.status(500).json({ success: false, message: 'Fetch error' });
     }
   },
 
-  // Get transaction statistics
-  getTransactionStats: async (req, res) => {
+  // --- 2. ADDED: GET TRANSACTION BY ID (Required by router.get('/:id')) ---
+  getTransactionById: async (req, res) => {
     try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-      // Daily statistics
-      const dailyStats = await Transaction.findAll({
-        where: {
-          user_id: req.user.id,
-          created_at: { [sequelize.Op.gte]: today }
-        },
-        attributes: [
-          'type',
-          [sequelize.fn('SUM', sequelize.col('amount')), 'total_amount'],
-          [sequelize.fn('COUNT', sequelize.col('id')), 'count']
-        ],
-        group: ['type']
+      const tx = await Transaction.findOne({
+        where: { id: req.params.id, user_id: req.user.id }
       });
-
-      // Monthly statistics
-      const monthlyStats = await Transaction.findAll({
-        where: {
-          user_id: req.user.id,
-          created_at: { [sequelize.Op.gte]: thirtyDaysAgo }
-        },
-        attributes: [
-          [sequelize.fn('DATE', sequelize.col('created_at')), 'date'],
-          [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
-          [sequelize.fn('SUM', sequelize.col('amount')), 'total_amount']
-        ],
-        group: [sequelize.fn('DATE', sequelize.col('created_at'))],
-        order: [[sequelize.fn('DATE', sequelize.col('created_at')), 'DESC']],
-        limit: 30
-      });
-
-      // Type distribution
-      const typeDistribution = await Transaction.findAll({
-        where: { user_id: req.user.id },
-        attributes: [
-          'type',
-          [sequelize.fn('COUNT', sequelize.col('id')), 'count']
-        ],
-        group: ['type']
-      });
-
-      // Currency distribution
-      const currencyDistribution = await Transaction.findAll({
-        where: { user_id: req.user.id },
-        attributes: [
-          'currency',
-          [sequelize.fn('SUM', sequelize.col('amount')), 'total_amount'],
-          [sequelize.fn('COUNT', sequelize.col('id')), 'count']
-        ],
-        group: ['currency']
-      });
-
-      res.json({
-        success: true,
-        data: {
-          daily_stats: dailyStats,
-          monthly_stats: monthlyStats,
-          type_distribution: typeDistribution,
-          currency_distribution: currencyDistribution
-        }
-      });
+      if (!tx) return res.status(404).json({ success: false, message: 'Not found' });
+      res.json({ success: true, data: tx });
     } catch (error) {
-      logger.error(`Get transaction stats error: ${error.message}`);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch transaction statistics'
-      });
+      res.status(500).json({ success: false, message: 'Error fetching transaction' });
     }
   },
 
-  // Update transaction status (Admin only)
+  // --- 3. ADDED: DEPOSIT LOGIC (Corrected router.post('/deposit')) ---
+  requestDeposit: async (req, res) => {
+    try {
+      const { amount, currency, payment_method } = req.body;
+      const tx = await Transaction.create({
+        user_id: req.user.id,
+        type: 'deposit',
+        amount: amount,
+        net_amount: amount,
+        currency: currency.toUpperCase(),
+        status: 'pending',
+        metadata: { payment_method }
+      });
+      res.json({ success: true, message: 'Deposit intent logged', data: tx });
+    } catch (error) {
+      res.status(500).json({ success: false, message: 'Deposit failed' });
+    }
+  },
+
+  // 4. USER: Request a withdrawal (Existing)
+  requestWithdrawal: async (req, res) => {
+    const dbTransaction = await sequelize.transaction();
+    try {
+      const { amount, currency, address } = req.body;
+      const userId = req.user.id;
+
+      const wallet = await Wallet.findOne({
+        where: { user_id: userId, currency: currency.toUpperCase() },
+        transaction: dbTransaction,
+        lock: dbTransaction.LOCK.UPDATE
+      });
+
+      if (!wallet || Number(wallet.balance) < Number(amount)) {
+        await dbTransaction.rollback();
+        return res.status(400).json({ success: false, message: 'Insufficient balance' });
+      }
+
+      await wallet.update({
+        balance: literal(`balance - ${amount}`),
+        locked_balance: literal(`locked_balance + ${amount}`)
+      }, { transaction: dbTransaction });
+
+      const tx = await Transaction.create({
+        user_id: userId,
+        type: 'withdrawal',
+        amount: amount,
+        net_amount: amount,
+        currency: currency.toUpperCase(),
+        status: 'pending',
+        metadata: { destination_address: address }
+      }, { transaction: dbTransaction });
+
+      await dbTransaction.commit();
+      res.json({ success: true, message: 'Withdrawal request submitted', data: tx });
+
+    } catch (error) {
+      if (dbTransaction) await dbTransaction.rollback();
+      logger.error(`Withdrawal Error: ${error.message}`);
+      res.status(500).json({ success: false, message: 'Withdrawal failed' });
+    }
+  },
+
+  // --- 5. ADDED: ATOMIC TRANSFER LOGIC (Required by router.post('/transfer')) ---
+  transfer: async (req, res) => {
+    const t = await sequelize.transaction();
+    try {
+      const { recipientEmail, amount, currency } = req.body;
+      const amountNum = parseFloat(amount);
+
+      const senderWallet = await Wallet.findOne({
+        where: { user_id: req.user.id, currency: currency.toUpperCase() },
+        transaction: t, lock: t.LOCK.UPDATE
+      });
+
+      const recipient = await User.findOne({ where: { email: recipientEmail } });
+      if (!recipient) throw new Error('Recipient not found');
+
+      const receiverWallet = await Wallet.findOne({
+        where: { user_id: recipient.id, currency: currency.toUpperCase() },
+        transaction: t, lock: t.LOCK.UPDATE
+      });
+
+      if (!senderWallet || senderWallet.balance < amountNum) throw new Error('Insufficient funds');
+
+      await senderWallet.update({ balance: literal(`balance - ${amountNum}`) }, { transaction: t });
+      await receiverWallet.update({ balance: literal(`balance + ${amountNum}`) }, { transaction: t });
+
+      await Transaction.create({
+        user_id: req.user.id,
+        type: 'transfer',
+        amount: amountNum,
+        currency: currency.toUpperCase(),
+        status: 'completed',
+        metadata: { recipient: recipientEmail }
+      }, { transaction: t });
+
+      await t.commit();
+      res.json({ success: true, message: 'Transfer successful' });
+    } catch (error) {
+      if (t) await t.rollback();
+      res.status(400).json({ success: false, message: error.message });
+    }
+  },
+
+  // --- 6. ADDED: CANCEL TRANSACTION (Required by router.post('/:id/cancel')) ---
+  cancelTransaction: async (req, res) => {
+    const t = await sequelize.transaction();
+    try {
+      const tx = await Transaction.findOne({
+        where: { id: req.params.id, user_id: req.user.id, status: 'pending' },
+        transaction: t
+      });
+
+      if (!tx) throw new Error('Transaction not found or not cancellable');
+
+      if (tx.type === 'withdrawal') {
+        await Wallet.update({
+          balance: literal(`balance + ${tx.amount}`),
+          locked_balance: literal(`locked_balance - ${tx.amount}`)
+        }, { where: { user_id: req.user.id, currency: tx.currency }, transaction: t });
+      }
+
+      tx.status = 'cancelled';
+      await tx.save({ transaction: t });
+
+      await t.commit();
+      res.json({ success: true, message: 'Transaction cancelled' });
+    } catch (error) {
+      if (t) await t.rollback();
+      res.status(400).json({ success: false, message: error.message });
+    }
+  },
+
+  // --- 7. ADDED: ESTIMATE FEE (Required by router.post('/estimate-fee')) ---
+  getTransactionFee: async (req, res) => {
+    const { amount } = req.body;
+    const fee = parseFloat(amount) * 0.01; // Example 1% fee
+    res.json({ success: true, fee });
+  },
+
+  // 8. ADMIN: Update Status (Existing)
   updateTransactionStatus: async (req, res) => {
-    const transaction = await sequelize.transaction();
-    
+    const dbTransaction = await sequelize.transaction();
     try {
       const { id } = req.params;
       const { status, remarks } = req.body;
 
-      const validStatuses = Object.values(constants.TRANSACTION_STATUS);
-      if (!validStatuses.includes(status)) {
-        await transaction.rollback();
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid status'
-        });
-      }
+      const tx = await Transaction.findByPk(id, { transaction: dbTransaction, lock: dbTransaction.LOCK.UPDATE });
+      if (!tx || tx.status !== 'pending') throw new Error('Invalid transaction');
 
-      const tx = await Transaction.findByPk(id, { transaction });
-      if (!tx) {
-        await transaction.rollback();
-        return res.status(404).json({
-          success: false,
-          message: 'Transaction not found'
-        });
-      }
+      const walletWhere = { user_id: tx.user_id, currency: tx.currency };
 
-      // If transaction is being marked as completed, update wallet
-      if (status === 'completed' && tx.status !== 'completed') {
-        if (tx.type === 'deposit') {
-          const wallet = await Wallet.findOne({
-            where: {
-              user_id: tx.user_id,
-              currency: tx.currency,
-              wallet_type: 'spot'
-            },
-            transaction
-          });
-
-          if (wallet) {
-            wallet.balance = parseFloat(wallet.balance) + parseFloat(tx.net_amount);
-            wallet.total_deposited = parseFloat(wallet.total_deposited) + parseFloat(tx.amount);
-            await wallet.save({ transaction });
-          }
+      if (status === 'completed') {
+        if (tx.type === 'withdrawal') {
+          await Wallet.update({
+            locked_balance: literal(`locked_balance - ${tx.amount}`),
+            total_withdrawn: literal(`total_withdrawn + ${tx.amount}`)
+          }, { where: walletWhere, transaction: dbTransaction });
+        } else if (tx.type === 'deposit') {
+          await Wallet.update({
+            balance: literal(`balance + ${tx.net_amount}`),
+            total_deposited: literal(`total_deposited + ${tx.amount}`)
+          }, { where: walletWhere, transaction: dbTransaction });
         }
-        
-        tx.confirmed_at = new Date();
+      } else if (status === 'failed' && tx.type === 'withdrawal') {
+        await Wallet.update({
+          balance: literal(`balance + ${tx.amount}`),
+          locked_balance: literal(`locked_balance - ${tx.amount}`)
+        }, { where: walletWhere, transaction: dbTransaction });
       }
 
       tx.status = status;
-      if (remarks) {
-        tx.metadata = { ...tx.metadata, admin_remarks: remarks };
-      }
-      await tx.save({ transaction });
+      if (remarks) tx.metadata = { ...tx.metadata, admin_remarks: remarks };
+      await tx.save({ transaction: dbTransaction });
 
-      await transaction.commit();
-
-      // Send notification to user about status change
-
-      res.json({
-        success: true,
-        message: 'Transaction status updated successfully',
-        data: tx
-      });
-
-      logger.info(`Transaction status updated: ${id} -> ${status}`);
+      await dbTransaction.commit();
+      res.json({ success: true, message: `Transaction marked as ${status}` });
     } catch (error) {
-      await transaction.rollback();
-      logger.error(`Update transaction status error: ${error.message}`);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to update transaction status'
-      });
+      if (dbTransaction) await dbTransaction.rollback();
+      res.status(500).json({ success: false, message: error.message });
     }
   }
 };

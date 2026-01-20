@@ -2,10 +2,11 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const NodeCache = require('node-cache');
 
-const cache = new NodeCache({ stdTTL: 300 }); // 5 minute default TTL
+// Primary cache for short-lived UI data
+const cache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
 
 const helper = {
-  // Generate JWT token
+  // 1. Authentication Helpers
   generateToken: (user) => {
     return jwt.sign(
       {
@@ -15,163 +16,95 @@ const helper = {
         isVerified: user.isVerified
       },
       process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRE }
+      { expiresIn: process.env.JWT_EXPIRE || '24h' }
     );
   },
 
-  // Generate refresh token
   generateRefreshToken: (userId) => {
     return jwt.sign(
       { id: userId },
       process.env.JWT_REFRESH_SECRET,
-      { expiresIn: process.env.JWT_REFRESH_EXPIRE }
+      { expiresIn: process.env.JWT_REFRESH_EXPIRE || '7d' }
     );
   },
 
-  // Verify JWT token
-  verifyToken: (token) => {
-    return jwt.verify(token, process.env.JWT_SECRET);
+  verifyToken: (token, isRefresh = false) => {
+    const secret = isRefresh ? process.env.JWT_REFRESH_SECRET : process.env.JWT_SECRET;
+    return jwt.verify(token, secret);
   },
 
-  // Generate random string
-  generateRandomString: (length = 32) => {
-    return crypto.randomBytes(length).toString('hex');
-  },
-
-  // Format currency
+  // 2. Financial & Crypto Math
+  // Using BigInt/Strings to avoid floating point issues (0.1 + 0.2)
   formatCurrency: (amount, currency = 'USD') => {
+    const isCrypto = ['BTC', 'ETH', 'SOL', 'BNB'].includes(currency.toUpperCase());
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: currency,
+      currency: 'USD',
       minimumFractionDigits: 2,
-      maximumFractionDigits: 8
+      maximumFractionDigits: isCrypto ? 8 : 2
     }).format(amount);
   },
 
-  // Format date
-  formatDate: (date, format = 'long') => {
-    const d = new Date(date);
-    
-    if (format === 'short') {
-      return d.toLocaleDateString('en-US');
-    } else if (format === 'time') {
-      return d.toLocaleTimeString('en-US');
-    } else {
-      return d.toLocaleString('en-US');
-    }
+  // Calculate daily interest: Principal * (Rate/100) / 365
+  calculateDailyROI: (principal, annualRatePercent) => {
+    const p = parseFloat(principal);
+    const r = parseFloat(annualRatePercent) / 100 / 365;
+    return (p * r).toFixed(8); // Return as string to preserve precision
   },
 
-  // Calculate percentage
-  calculatePercentage: (part, total) => {
-    if (total === 0) return 0;
-    return (part / total) * 100;
-  },
-
-  // Round number
-  roundNumber: (num, decimals = 2) => {
-    const factor = Math.pow(10, decimals);
-    return Math.round(num * factor) / factor;
-  },
-
-  // Validate email
-  validateEmail: (email) => {
-    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return re.test(email);
-  },
-
-  // Generate referral code
-  generateReferralCode: (length = 8) => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let result = '';
-    for (let i = 0; i < length; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
-  },
-
-  // Calculate investment returns
-  calculateInvestmentReturns: (principal, annualRate, days) => {
-    const dailyRate = annualRate / 365 / 100;
-    return principal * (1 + dailyRate * days);
-  },
-
-  // Get cache instance
-  CACHE: cache,
-
-  // Pagination helper
-  paginate: (array, page = 1, limit = 20) => {
-    const offset = (page - 1) * limit;
-    const paginatedItems = array.slice(offset, offset + limit);
-    
-    return {
-      data: paginatedItems,
-      pagination: {
-        total: array.length,
-        page: parseInt(page),
-        limit: parseInt(limit),
-        pages: Math.ceil(array.length / limit)
-      }
-    };
-  },
-
-  // Mask sensitive data
-  maskData: (data, visibleChars = 4) => {
-    if (!data || data.length <= visibleChars * 2) return data;
-    
-    const firstPart = data.substring(0, visibleChars);
-    const lastPart = data.substring(data.length - visibleChars);
-    const maskedPart = '*'.repeat(data.length - visibleChars * 2);
-    
-    return `${firstPart}${maskedPart}${lastPart}`;
-  },
-
-  // Delay function
-  delay: (ms) => {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  },
-
-  // Deep clone object
-  deepClone: (obj) => {
-    return JSON.parse(JSON.stringify(obj));
-  },
-
-  // Check if object is empty
-  isEmpty: (obj) => {
-    return Object.keys(obj).length === 0;
-  },
-
-  // Generate transaction ID
-  generateTransactionId: () => {
-    const timestamp = Date.now();
-    const random = Math.floor(Math.random() * 10000);
-    return `TX${timestamp}${random}`;
-  },
-
-  // Validate password strength
+  // 3. Security & Validation
   validatePasswordStrength: (password) => {
-    const minLength = 8;
-    const hasUpperCase = /[A-Z]/.test(password);
-    const hasLowerCase = /[a-z]/.test(password);
-    const hasNumbers = /\d/.test(password);
-    const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
-    
-    const strength = {
-      length: password.length >= minLength,
-      hasUpperCase,
-      hasLowerCase,
-      hasNumbers,
-      hasSpecialChar
+    const criteria = {
+      length: password.length >= 8,
+      hasUpperCase: /[A-Z]/.test(password),
+      hasLowerCase: /[a-z]/.test(password),
+      hasNumbers: /\d/.test(password),
+      hasSpecialChar: /[!@#$%^&*]/.test(password)
     };
     
-    const isValid = Object.values(strength).every(Boolean);
-    const score = Object.values(strength).filter(Boolean).length;
-    
+    const score = Object.values(criteria).filter(Boolean).length;
     return {
-      isValid,
+      isValid: score >= 5,
       score,
-      strength,
-      message: isValid ? 'Password is strong' : 'Password must contain at least 8 characters, one uppercase letter, one lowercase letter, one number, and one special character'
+      message: score >= 5 ? 'Strong' : 'Weak: Needs caps, numbers, and special chars'
     };
+  },
+
+  generateReferralCode: (length = 8) => {
+    // Avoid confusing characters like 0, O, I, 1
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    return Array.from({ length }, () => chars[crypto.randomInt(0, chars.length)]).join('');
+  },
+
+  generateTransactionId: (prefix = 'TX') => {
+    const datePart = Date.now().toString(36).toUpperCase();
+    const randomPart = crypto.randomBytes(3).toString('hex').toUpperCase();
+    return `${prefix}-${datePart}-${randomPart}`;
+  },
+
+  // 4. Data Transformation
+  paginate: (queryResult, page = 1, limit = 20) => {
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    return {
+      offset,
+      limit: parseInt(limit)
+    };
+  },
+
+  // Masking for Privacy
+  maskAddress: (address) => {
+    if (!address) return '';
+    return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+  },
+
+  // 5. System Utilities
+  CACHE: cache,
+  
+  delay: (ms) => new Promise(resolve => setTimeout(resolve, ms)),
+
+  // Clean object of null/undefined values (useful before DB updates)
+  cleanObject: (obj) => {
+    return Object.fromEntries(Object.entries(obj).filter(([_, v]) => v != null));
   }
 };
 

@@ -1,0 +1,10 @@
+const path = require('path');
+
+module.exports = {
+  // START: Explicitly pointing to config.js since Sequelize looks for .json by default
+  'config': path.resolve('config', 'config.js'),
+  'models-path': path.resolve('models'),
+  'seeders-path': path.resolve('seeders'),
+  'migrations-path': path.resolve('migrations')
+  // END: Explicitly pointing to config.js
+};

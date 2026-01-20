@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto Withdrawal | TradePro</title>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    
+    <link rel="stylesheet" href="/css/crypto-withraw.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo"><i class="fas fa-chart-line"></i> TradePro</div>
+            <h1>Crypto Withdrawal</h1>
+            <p>Withdraw funds to your external cryptocurrency wallet</p>
+        </header>
+
+        <div class="withdrawal-form">
+            <div class="form-header">
+                <div class="method-icon"><i class="fab fa-bitcoin"></i></div>
+                <h2 class="form-title">Withdrawal Details</h2>
+            </div>
+            <form id="withdrawalForm">
+                <div class="form-group">
+                    <label for="crypto-type">Select Cryptocurrency</label>
+                    <div class="crypto-selector">
+                        <div class="crypto-option active" data-crypto="BTC">
+                            <div class="crypto-icon"><i class="fab fa-bitcoin"></i></div>
+                            <div class="crypto-name">Bitcoin</div>
+                        </div>
+                        <div class="crypto-option" data-crypto="ETH">
+                            <div class="crypto-icon"><i class="fab fa-ethereum"></i></div>
+                            <div class="crypto-name">Ethereum</div>
+                        </div>
+                        <div class="crypto-option" data-crypto="USDT">
+                            <div class="crypto-icon"><i class="fas fa-coins"></i></div>
+                            <div class="crypto-name">USDT</div>
+                        </div>
+                    </div>
+                    <input type="hidden" id="crypto-type" value="BTC" required>
+                </div>
+                
+                <div class="balance-info">
+                    <div class="balance-row">
+                        <span class="balance-label">Available Balance:</span>
+                        <span class="balance-value" id="available-balance">0 BTC</span>
+                    </div>
+                    <div class="balance-row">
+                        <span class="balance-label">Equivalent USD:</span>
+                        <span class="balance-value" id="usd-balance">$0</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="wallet-address">Destination Wallet Address</label>
+                    <input type="text" id="wallet-address" class="form-control" placeholder="Enter your external wallet address" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="withdrawal-amount">Withdrawal Amount</label>
+                    <input type="text" id="withdrawal-amount" class="form-control" placeholder="0.00000000" required>
+                </div>
+                
+                <div class="fee-info">
+                    <span class="fee-label">Network Fee:</span>
+                    <span class="fee-value" id="network-fee">0.00 BTC</span>
+                </div>
+                
+                <div class="fee-info">
+                    <span class="fee-label">You Will Receive:</span>
+                    <span class="fee-value" id="receive-amount">0.00 BTC</span>
+                </div>
+                
+                <button type="submit" class="submit-btn" id="submit-btn" disabled>Withdraw Funds</button>
+                <div class="success-message" id="withdrawal-success" style="display: none;"></div>
+            </form>
+            
+            <div class="security-notice">
+                <h3><i class="fas fa-exclamation-triangle"></i> Security Notice</h3>
+                <p>Please double-check the wallet address before confirming your withdrawal. Cryptocurrency transactions are irreversible once sent.</p>
+            </div>
+            
+            <a href="/dashboard" class="back-link"><i class="fas fa-arrow-left"></i> Back to Dashboard</a>
+        </div>
+    </div>
+
+    <div class="confirmation-modal" id="confirmation-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-icon"><i class="fas fa-check"></i></div>
+                <h2 class="modal-title">Confirm Withdrawal</h2>
+            </div>
+            <div class="transaction-details">
+                <div class="transaction-row"><span class="transaction-label">Cryptocurrency:</span><span class="transaction-value" id="confirm-crypto">BTC</span></div>
+                <div class="transaction-row"><span class="transaction-label">Amount:</span><span class="transaction-value" id="confirm-amount">0</span></div>
+                <div class="transaction-row"><span class="transaction-label">Network Fee:</span><span class="transaction-value" id="confirm-fee">0</span></div>
+                <div class="transaction-row"><span class="transaction-label">You'll Receive:</span><span class="transaction-value" id="confirm-receive">0</span></div>
+                <div class="transaction-row"><span class="transaction-label">Destination:</span><span class="transaction-value" id="confirm-address"></span></div>
+            </div>
+            <div class="modal-buttons">
+                <button class="cancel-btn" id="cancel-withdrawal">Cancel</button>
+                <button class="confirm-btn" id="confirm-withdrawal">Confirm Withdrawal</button>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>© 2026 TradePro Platform. All rights reserved.</p>
+    </footer>
+
+    <script src="/js/crypto-withraw.js"></script>
+</body>
+</html>

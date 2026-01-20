@@ -1,5 +1,5 @@
 const { DataTypes } = require('sequelize');
-const sequelize = require('../config/database');
+const { sequelize } = require('../config/database');
 const bcrypt = require('bcryptjs');
 
 const User = sequelize.define('User', {
@@ -12,57 +12,64 @@ const User = sequelize.define('User', {
     type: DataTypes.STRING,
     allowNull: false,
     unique: true,
-    validate: {
-      isEmail: true
-    }
+    validate: { isEmail: true }
   },
   password: {
     type: DataTypes.STRING,
     allowNull: false
   },
-  firstName: {
+  first_name: {
     type: DataTypes.STRING,
     allowNull: false
   },
-  lastName: {
+  last_name: {
     type: DataTypes.STRING,
     allowNull: false
   },
-  isActive: {
+  role: {
+    type: DataTypes.ENUM('user', 'admin', 'super_admin'),
+    defaultValue: 'user'
+  },
+  status: {
+    type: DataTypes.ENUM('active', 'inactive', 'suspended', 'banned'),
+    defaultValue: 'active'
+  },
+  is_verified: {
     type: DataTypes.BOOLEAN,
-    defaultValue: true
+    defaultValue: false
   },
-  totalBalance: {
-    type: DataTypes.DECIMAL(20, 8),
-    defaultValue: 0
-  },
-  totalInvested: {
-    type: DataTypes.DECIMAL(20, 8),
-    defaultValue: 0
-  },
-  totalProfit: {
-    type: DataTypes.DECIMAL(20, 8),
-    defaultValue: 0
+  last_login: {
+    type: DataTypes.DATE
   }
 }, {
+  tableName: 'users',
+  underscored: true,
+  timestamps: true,
   hooks: {
     beforeCreate: async (user) => {
       if (user.password) {
-        const salt = await bcrypt.genSalt(10);
-        user.password = await bcrypt.hash(user.password, salt);
+        user.password = await bcrypt.hash(user.password, 12); // Increased rounds for 2025 security
       }
+      user.email = user.email.toLowerCase().trim();
     },
     beforeUpdate: async (user) => {
       if (user.changed('password')) {
-        const salt = await bcrypt.genSalt(10);
-        user.password = await bcrypt.hash(user.password, salt);
+        user.password = await bcrypt.hash(user.password, 12);
       }
     }
   }
 });
 
+// Instance Method: Compare Password
 User.prototype.comparePassword = async function(candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
+};
+
+// Security: Automatically remove password from any JSON response
+User.prototype.toJSON = function () {
+  const values = Object.assign({}, this.get());
+  delete values.password;
+  return values;
 };
 
 module.exports = User;

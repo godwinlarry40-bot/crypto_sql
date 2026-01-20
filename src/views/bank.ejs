@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= locals.bank ? bank : 'TradePro Bank' %></title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/bank.css">
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo"><i class="fas fa-chart-line"></i> TradePro</div>
+            <h1>Bank Transfer</h1>
+            <p>Transfer funds directly into your bank account</p>
+        </header>
+
+        <div class="deposit-form">
+            <div class="form-header">
+                <div class="method-icon"><i class="fas fa-university"></i></div>
+                <h2 class="form-title">Transfer Details</h2>
+            </div>
+            <form id="bankTransferForm">
+                <div class="form-group">
+                    <label for="bank-name">Bank Name</label>
+                    <input type="text" name="bankName" id="bank-name" class="form-control" placeholder="Your Bank Name" required>
+                </div>
+                <div class="form-group">
+                    <label for="account-number">Account Number</label>
+                    <input type="text" name="accountNumber" id="account-number" class="form-control" placeholder="Your Account Number" required>
+                </div>
+                <div class="form-group">
+                    <label for="routing-number">Routing Number</label>
+                    <input type="text" name="routingNumber" id="routing-number" class="form-control" placeholder="Routing Number" required>
+                </div>
+                <div class="form-group">
+                    <label for="transfer-amount">Amount ($)</label>
+                    <input type="number" name="amount" id="transfer-amount" class="form-control" placeholder="100.00" min="10" step="0.01" required>
+                </div>
+                
+                <button type="submit" class="submit-btn">Initiate Transfer</button>
+                <div class="success-message" id="transfer-success" style="display: none;">Transfer initiated successfully!</div>
+            </form>
+        </div>
+    </div>
+
+    <footer>
+        <p>© 2026 TradePro Platform. All rights reserved.</p>
+    </footer>
+    <script src="/js/bank.js"></script>
+</body>
+</html>

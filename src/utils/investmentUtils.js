@@ -1,209 +1,107 @@
 const moment = require('moment');
 
 const investmentUtils = {
-  // Calculate investment returns
+  // 1. Core Earnings Logic
+  // Formula: A = P(1 + rt) for simple interest
   calculateInvestmentReturns: (principal, annualRate, days) => {
-    const dailyRate = annualRate / 365 / 100;
-    const returns = principal * (1 + dailyRate * days);
+    const p = parseFloat(principal);
+    const r = parseFloat(annualRate) / 100 / 365;
+    const returns = p * (1 + r * parseInt(days));
     return parseFloat(returns.toFixed(8));
   },
 
-  // Calculate daily earnings
   calculateDailyEarnings: (principal, annualRate) => {
-    const dailyRate = annualRate / 365 / 100;
-    return parseFloat((principal * dailyRate).toFixed(8));
+    const p = parseFloat(principal);
+    const dailyRate = parseFloat(annualRate) / 100 / 365;
+    return parseFloat((p * dailyRate).toFixed(8));
   },
 
-  // Calculate earnings for a specific period
-  calculateEarningsForPeriod: (principal, annualRate, startDate, endDate) => {
-    const days = moment(endDate).diff(moment(startDate), 'days');
-    const dailyRate = annualRate / 365 / 100;
-    return parseFloat((principal * dailyRate * days).toFixed(8));
-  },
-
-  // Calculate remaining days
+  // 2. Time & Progress Management
   calculateRemainingDays: (endDate) => {
-    const now = moment();
-    const end = moment(endDate);
-    return Math.max(0, end.diff(now, 'days'));
+    const now = moment().startOf('day');
+    const end = moment(endDate).startOf('day');
+    const diff = end.diff(now, 'days');
+    return Math.max(0, diff);
   },
 
-  // Calculate progress percentage
   calculateProgressPercentage: (startDate, endDate) => {
-    const now = moment();
     const start = moment(startDate);
     const end = moment(endDate);
-    
-    const totalDuration = end.diff(start, 'hours');
-    const elapsedDuration = now.diff(start, 'hours');
-    
-    if (totalDuration <= 0) return 100;
-    return Math.min(100, Math.max(0, (elapsedDuration / totalDuration) * 100));
+    const now = moment();
+
+    const total = end.diff(start, 'minutes');
+    const elapsed = now.diff(start, 'minutes');
+
+    if (total <= 0) return 100;
+    const progress = (elapsed / total) * 100;
+    return parseFloat(Math.min(100, Math.max(0, progress)).toFixed(2));
   },
 
-  // Calculate next payout date
+  // 3. Payout Scheduling
   calculateNextPayoutDate: (lastPayoutDate, frequency) => {
     const date = moment(lastPayoutDate || new Date());
     
-    switch (frequency) {
-      case 'daily':
-        return date.add(1, 'days').toDate();
-      case 'weekly':
-        return date.add(7, 'days').toDate();
-      case 'monthly':
-        return date.add(1, 'months').toDate();
-      case 'end':
-        return null;
-      default:
-        return date.add(1, 'days').toDate();
+    switch (frequency?.toLowerCase()) {
+      case 'daily':   return date.add(1, 'days').toDate();
+      case 'weekly':  return date.add(7, 'days').toDate();
+      case 'monthly': return date.add(1, 'months').toDate();
+      case 'end':     return null; // Paid only at maturity
+      default:        return date.add(1, 'days').toDate();
     }
   },
 
-  // Check if payout is due
   isPayoutDue: (nextPayoutDate) => {
     if (!nextPayoutDate) return false;
     return moment().isSameOrAfter(moment(nextPayoutDate));
   },
 
-  // Calculate penalty for early withdrawal
-  calculateEarlyWithdrawalPenalty: (principal, expectedReturns, daysElapsed, totalDays) => {
-    // Minimum penalty: 10% of expected interest
-    // Penalty decreases linearly with time
-    const expectedInterest = expectedReturns - principal;
-    const minPenalty = expectedInterest * 0.1;
-    const maxPenalty = expectedInterest * 0.5;
-    
-    const completionRatio = daysElapsed / totalDays;
-    const penalty = maxPenalty - (maxPenalty - minPenalty) * completionRatio;
-    
-    return Math.max(minPenalty, Math.min(maxPenalty, penalty));
-  },
+  // 4. Financial Risk Metrics
+  // Formula: A = P(1 + r/n)^(nt)
+  calculateCompoundInterest: (principal, annualRate, years, frequency = 'daily') => {
+    const frequencies = { daily: 365, monthly: 12, quarterly: 4, yearly: 1 };
+    const n = frequencies[frequency] || 365;
+    const p = parseFloat(principal);
+    const r = parseFloat(annualRate) / 100;
+    const t = parseFloat(years);
 
-  // Calculate compound interest
-  calculateCompoundInterest: (principal, annualRate, periods, frequency = 'daily') => {
-    let n;
-    switch (frequency) {
-      case 'daily':
-        n = 365;
-        break;
-      case 'monthly':
-        n = 12;
-        break;
-      case 'quarterly':
-        n = 4;
-        break;
-      case 'yearly':
-        n = 1;
-        break;
-      default:
-        n = 365;
-    }
-    
-    const rate = annualRate / 100;
-    const amount = principal * Math.pow(1 + rate / n, n * periods);
+    const amount = p * Math.pow(1 + r / n, n * t);
     return parseFloat(amount.toFixed(8));
   },
 
-  // Calculate ROI (Return on Investment)
-  calculateROI: (initialInvestment, currentValue) => {
-    if (initialInvestment === 0) return 0;
-    return ((currentValue - initialInvestment) / initialInvestment) * 100;
+  calculateROI: (initial, current) => {
+    const i = parseFloat(initial);
+    const c = parseFloat(current);
+    if (i === 0) return 0;
+    return parseFloat((((c - i) / i) * 100).toFixed(2));
   },
 
-  // Calculate Sharpe ratio (simplified)
-  calculateSharpeRatio: (returns, riskFreeRate = 0.02) => {
-    if (returns.length === 0) return 0;
+  // 5. Advanced Analytics (Max Drawdown)
+  calculateMaxDrawdown: (priceHistory) => {
+    if (!priceHistory || priceHistory.length === 0) return 0;
     
-    const meanReturn = returns.reduce((a, b) => a + b, 0) / returns.length;
-    const variance = returns.reduce((a, b) => a + Math.pow(b - meanReturn, 2), 0) / returns.length;
-    const stdDev = Math.sqrt(variance);
-    
-    if (stdDev === 0) return 0;
-    return (meanReturn - riskFreeRate) / stdDev;
+    let peak = priceHistory[0];
+    let maxDD = 0;
+
+    for (const val of priceHistory) {
+      if (val > peak) peak = val;
+      const dd = (peak - val) / peak;
+      if (dd > maxDD) maxDD = dd;
+    }
+    return parseFloat((maxDD * 100).toFixed(2));
   },
 
-  // Calculate maximum drawdown
-  calculateMaxDrawdown: (values) => {
-    if (values.length === 0) return 0;
-    
-    let peak = values[0];
-    let maxDrawdown = 0;
-    
-    for (const value of values) {
-      if (value > peak) {
-        peak = value;
-      }
-      
-      const drawdown = (peak - value) / peak;
-      if (drawdown > maxDrawdown) {
-        maxDrawdown = drawdown;
-      }
-    }
-    
-    return maxDrawdown * 100; // Return as percentage
-  },
-
-  // Generate investment schedule
-  generateInvestmentSchedule: (investment) => {
-    const schedule = [];
-    const startDate = moment(investment.start_date);
-    const endDate = moment(investment.end_date);
-    const totalDays = endDate.diff(startDate, 'days');
-    const dailyEarnings = calculateDailyEarnings(investment.amount, investment.interest_rate);
-    
-    let currentDate = startDate.clone();
-    let cumulativeEarnings = 0;
-    
-    while (currentDate.isSameOrBefore(endDate)) {
-      cumulativeEarnings += dailyEarnings;
-      
-      schedule.push({
-        date: currentDate.format('YYYY-MM-DD'),
-        day: currentDate.diff(startDate, 'days') + 1,
-        daily_earnings: dailyEarnings,
-        cumulative_earnings: cumulativeEarnings,
-        is_payout_day: isPayoutDay(currentDate, investment.payout_frequency)
-      });
-      
-      currentDate.add(1, 'day');
-    }
-    
-    return schedule;
-  },
-
-  // Validate investment parameters
-  validateInvestmentParameters: (amount, plan) => {
-    const errors = [];
-    
-    if (amount < plan.min_amount) {
-      errors.push(`Minimum investment amount is ${plan.min_amount}`);
-    }
-    
-    if (plan.max_amount && amount > plan.max_amount) {
-      errors.push(`Maximum investment amount is ${plan.max_amount}`);
-    }
+  // 6. Early Withdrawal Logic
+  calculateEarlyWithdrawalPenalty: (principal, earnedSoFar, penaltyPercent = 10) => {
+    // Standard logic: Penalty is a % of the principal or earned interest
+    const p = parseFloat(principal);
+    const penalty = p * (penaltyPercent / 100);
+    const netRelease = (p + parseFloat(earnedSoFar)) - penalty;
     
     return {
-      isValid: errors.length === 0,
-      errors
+      penalty_amount: parseFloat(penalty.toFixed(8)),
+      net_amount: parseFloat(netRelease.toFixed(8))
     };
   }
 };
-
-// Helper function to check if it's a payout day
-function isPayoutDay(date, frequency) {
-  switch (frequency) {
-    case 'daily':
-      return true;
-    case 'weekly':
-      return date.day() === 1; // Monday
-    case 'monthly':
-      return date.date() === 1; // 1st of month
-    case 'end':
-      return false;
-    default:
-      return false;
-  }
-}
 
 module.exports = investmentUtils;

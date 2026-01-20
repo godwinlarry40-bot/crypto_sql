@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transaction History | TradePro</title>
+    <link rel="stylesheet" href="/css/orders.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="bg-dark">
+    <div class="dashboard-wrapper">
+        <header class="orders-header">
+            <div class="header-content">
+                <h2><i class="fas fa-list-ul" style="color: var(--accent-color);"></i> Financial Ledger</h2>
+                <p>Monitor your deposits, withdrawals, and automated earnings.</p>
+            </div>
+            <div class="status-filters">
+                <button class="filter-btn active" data-type="all">All Activities</button>
+                <button class="filter-btn" data-type="deposit">Deposits</button>
+                <button class="filter-btn" data-type="investment_earning">Earnings</button>
+                <button class="filter-btn" data-type="withdrawal">Payouts</button>
+            </div>
+            </header>
+
+        <main class="orders-content">
+            <div class="table-container shadow-lg">
+                <table class="orders-table">
+                    <thead>
+                        <tr>
+                            <th>Date & Time</th>
+                            <th>Action Type</th>
+                            <th>Amount (USDT)</th>
+                            <th>Reference ID</th>
+                            <th>Execution Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-tbody">
+                        <tr>
+                            <td colspan="5" class="text-center">
+                                <div class="spinner"></div>
+                                <p style="color: var(--text-dim);">Decrypting transaction data...</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="/js/history.js"></script>
+</body>
+</html>

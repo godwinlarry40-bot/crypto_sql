@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TradePro</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/broker.css"> </head>
+<body>
+   <div class="body">
+        <header class="header">
+            <div class="logo">TradePro</div>
+            <nav class="nav">
+                <a href="/dashboard">Dashboard</a> <a href="/markets">Markets</a>
+                <a href="/investments">Investments</a>
+            </nav>
+            <div class="header-actions">
+                <button class="btn"><a href="/login" style="color: inherit; text-decoration: none;">Login</a></button>
+                <button class="btn"><a href="/register" style="color: inherit; text-decoration: none;">Sign Up</a></button>
+            </div>
+        </header>
+        
+        <button class="hamburger" id="hamburgerBtn">☰</button>
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+        
+        <aside class="sidebar" id="sidebar">
+            <ul>
+                <li><a href="/dashboard">My Wallet</a></li>
+                <li class="dropdown">
+                    <a href="#" class="dropbtn">Deposit</a>
+                    <ul class="dropdown-menu">
+                        <li><a href="/deposit/credit">Credit Card</a></li>
+                        <li><a href="/deposit/crypto">Crypto</a></li>
+                    </ul>
+                </li>
+                <li class="dropdown">
+                    <a href="#" class="dropbtn">Withdrawal</a>
+                    <ul class="dropdown-menu">
+                        <li><a href="/withdraw/bank">Bank Transfer</a></li>
+                        <li><a href="/withdraw/crypto">Cryptocurrency</a></li>
+                    </ul>
+                </li>
+                <li><a href="/settings">Settings</a></li>
+                <li><a href="/history">History</a></li>
+            </ul>
+        </aside>
+        
+        <div class="main-content">

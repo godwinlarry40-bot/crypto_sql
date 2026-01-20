@@ -10,7 +10,9 @@ yarn-error.log*
 .env.development.local
 .env.test.local
 .env.production.local
-
+# when my port is being occupies with something 
+.netstat -ano | findstr :5000
+ /F /PID 7800taskkill
 # Logs
 logs/
 *.log
@@ -88,10 +90,10 @@ typings/
 # Nuxt.js build / generate output
 .nuxt
 dist
-
+.gitignore
 # Gatsby files
 .cache/
-public
+# public
 
 # Vuepress build output
 .vuepress/dist

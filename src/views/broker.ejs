@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TradePro - Advanced Trading Platform</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="broker.css">
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+</head>
+<body>
+    <div class="body">
+        <div class="api-status loading" id="apiStatus">
+            <span class="loading"></span> Connecting to API...
+        </div>
+        
+        <header class="header">
+            <div class="logo">TradePro</div>
+            <nav class="nav">
+                <a href="/dashboard">Dashboard</a>
+                <a href="/market">Markets</a>
+                <a href="/investment">Investments</a>
+                <a href="#">Orders</a>
+            </nav>
+            <div class="header-actions">
+                <button class="btn" id="loginBtn"><a href="/signin" style="color: inherit; text-decoration: none;">Login</a></button>
+                <button class="btn" id="signupBtn"><a href="/signup" style="color: inherit; text-decoration: none;">Sign Up</a></button>
+            </div>
+        </header>
+        
+        <button class="hamburger" id="hamburgerBtn">☰</button>
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+        <aside class="sidebar" id="sidebar">
+            <ul>
+                <li><a href="/dashboard">My Wallet</a></li>
+                <li class="dropdown">
+                    <a href="#" class="dropbtn">Deposit</a>
+                    <ul class="dropdown-menu">
+                        <li><a href="/credit">Credit Card</a></li>
+                        <li><a href="/cryptodep">Crypto</a></li>
+                    </ul>
+                </li>
+                <li class="dropdown">
+                    <a href="#" class="dropbtn">Withdrawal</a>
+                    <ul class="dropdown-menu">
+                        <li><a href="/bank">Bank Transfer</a></li>
+                        <li><a href="/withdraw/crypto">Cryptocurrency</a></li>
+                    </ul>
+                </li>
+                <li><a href="/settings">Settings</a></li>
+                <li><a href="/history">History</a></li>
+            </ul>
+        </aside>
+        
+        <div class="main-content">
+            <main class="main">
+                <section class="hero">
+                    <h1>Trade Crypto, Forex, and More</h1>
+                    <p>Professional trading platform with advanced tools for serious traders.</p>
+                    <button class="btn btn-primary" id="getStartedBtn"> <a href="/signup">Get Started</a></button>
+                </section>
+
+                <section class="market-watch">
+                    <h2>Live Market Watch <small id="lastUpdate"></small></h2>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Pair</th>
+                                <th>Price</th>
+                                <th>24h Change</th>
+                                <th>Market Cap</th>
+                                <th>Last Updated</th>
+                            </tr>
+                        </thead>
+                        <tbody id="marketData">
+                            <tr>
+                                <td colspan="5" style="text-align: center; padding: 20px;">
+                                    <div class="loading"></div> Loading live market data...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section> 
+
+                <section class="order-form">
+                    <div class="all-form">
+                        <div class="pic">
+                            <img src="2.jpeg" alt="Trading Platform">
+                        </div>
+                        <div class="form">
+                            <h2>Empowering traders to succeed</h2>
+                            <p> TradePro is a regulated and secure platform for Crypto, <br>Investing, and CFD trading — built for professionals, suitable for beginners.</p>
+                        </div>
+                        <div class="photo">
+                            <img src="download.jpeg" alt="Trading Charts">
+                        </div>
+                    </div>
+                </section> 
+            </main>
+        </div>
+
+        <footer class="footer">
+            <div class="footer-container">
+                <div class="footer-main">
+                    <div class="footer-brand">
+                        <h3>Trade Pro</h3>
+                        <p>Your trusted partner in cryptocurrency investment and market intelligence.</p>
+                        <div class="social-links">
+                            <a href="#"><i class="fab fa-twitter"></i></a>
+                            <a href="#"><i class="fab fa-telegram"></i></a>
+                            <a href="#"><i class="fab fa-linkedin"></i></a>
+                        </div>
+                    </div>
+                    <div class="footer-sections">
+                        <div class="footer-section">
+                            <h4>Trading & Markets</h4>
+                            <ul>
+                                <li><a href="#">Live Market Data</a></li>
+                                <li><a href="#">Price Analysis</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="copyright-section">
+                    <p>&copy; 2026 Trade Pro. All Rights Reserved.</p>
+                </div>
+            </div>
+        </footer>
+    </div>
+    <script src="js/broker.js"></script>
+</body>
+</html>

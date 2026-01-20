@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Dashboard | TradePro</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/broker.css">
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+</head>
+<body>
+    <div class="body">
+        <header class="header">
+            <div class="logo">TradePro</div>
+            <nav class="nav">
+                <a href="/market">Markets</a>
+                <a href="/investment">Investments</a>
+                <a href="/orders">Orders</a>
+            </nav>
+            <div class="header-actions">
+                <!-- <a href="/profile" class="profile-btn">
+                    <i class="fas fa-user-circle"></i> 
+                    <span>Godwin Larry</span>
+                </a> -->
+                <!-- Added sign-out button -->
+                <button class="btn btn-secondary header-logout" id="headerLogoutBtn">
+                    <i class="fas fa-sign-out-alt"></i> Sign Out
+                </button>
+            </div>
+        </header>
+
+        <button class="hamburger" id="hamburgerBtn">☰</button>
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+        
+        <aside class="sidebar" id="sidebar">
+            <ul>
+                <li><a href="/dashboard"><i class="fas fa-wallet"></i> My Wallet</a></li>
+                <li class="dropdown">
+                    <a href="#" class="dropbtn"><i class="fas fa-arrow-down"></i> Deposit</a>
+                    <ul class="dropdown-menu">
+                        <li><a href="/credit">Credit Card</a></li>
+                        <li><a href="/cryptodep">Crypto</a></li>
+                    </ul>
+                </li>
+                <li class="dropdown">
+                    <a href="#" class="dropbtn"><i class="fas fa-arrow-up"></i> Withdrawal</a>
+                    <ul class="dropdown-menu">
+                        <li><a href="/bank">Bank Transfer</a></li>
+                        <li><a href="/withdraw/crypto">Cryptocurrency</a></li>
+                    </ul>
+                </li>
+                <li><a href="/settings"><i class="fas fa-cog"></i> Settings</a></li>
+                <li><a href="/history"><i class="fas fa-history"></i> History</a></li>
+                <!-- Added sign-out button -->
+                <li>
+                    <button class="logout-btn" id="sidebarLogoutBtn">
+                        <i class="fas fa-sign-out-alt"></i> Sign Out
+                    </button>
+                </li>
+            </ul>
+        </aside>
+
+        <div class="main-content">
+            <main class="main">
+                <section class="welcome-msg">
+                    <h1>Welcome Godwin Larry!</h1>
+                    <p>Here is what's happening with your portfolio today.</p>
+                </section>
+
+                <div class="dashboard-grid">
+                    <div class="stat-card">
+                        <h3>Total Balance</h3>
+                        <div class="value">$0.00</div>
+                    </div>
+                    <div class="stat-card" style="border-left-color: #10b981;">
+                        <h3>Active Investments</h3>
+                        <div class="value">$0.00</div>
+                    </div>
+                    <div class="stat-card" style="border-left-color: #f59e0b;">
+                        <h3>Total Profit</h3>
+                        <div class="value">+$0.00</div>
+                    </div>
+                </div>
+
+                <section class="recent-activity">
+                    <h2>Recent Transactions</h2>
+                    <table class="activity-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Type</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>2026-01-10</td>
+                                <td>Crypto Deposit (BTC)</td>
+                                <td>+0.00BTC</td>
+                                <td class="status-completed">Completed</td>
+                            </tr>
+                            <tr>
+                                <td>2026-01-08</td>
+                                <td>Bank Withdrawal</td>
+                                <td>$0.00</td>
+                                <td class="status-pending">Pending</td>
+                            </tr>
+                            <tr>
+                                <td>2026-01-05</td>
+                                <td>Investment Profit</td>
+                                <td>$0.00</td>
+                                <td class="status-completed">Completed</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+            </main>
+        </div>
+
+        <footer class="footer">
+            <div class="copyright-section">
+                <p>&copy; 2026 Trade Pro. All Rights Reserved.</p>
+            </div>
+        </footer>
+    </div>
+    <script src="/js/broker.js"></script>
+</body>
+</html>

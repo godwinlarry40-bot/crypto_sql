@@ -1,506 +1,378 @@
 const { sequelize } = require('../config/database');
-const Wallet = require('../models/Wallet');
-const Transaction = require('../models/Transaction');
-const User = require('../models/User');
-const constants = require('../config/constants');
+const { Op } = require('sequelize');
+const { Wallet, Transaction, User, Investment } = require('../models');
 const logger = require('../utils/logger');
-const { processCryptoTransfer } = require('../services/walletService');
+
+// Fallback settings
+const SETTINGS = {
+  MIN_WITHDRAWAL: 0.001,
+  WITHDRAWAL_FEE_PERCENT: 1
+};
 
 const walletController = {
-  // Get all wallets for user
+
+  // =========================
+  // GET USER WALLETS
+  // =========================
   getUserWallets: async (req, res) => {
     try {
       const wallets = await Wallet.findAll({
-        where: { user_id: req.user.id, is_active: true },
-        attributes: ['id', 'currency', 'balance', 'locked_balance', 'total_deposited', 'total_withdrawn', 'wallet_address', 'wallet_type']
+        where: { user_id: req.user.id, is_active: true }
       });
-
-      res.json({
-        success: true,
-        data: wallets
-      });
+      res.json({ success: true, data: wallets });
     } catch (error) {
       logger.error(`Get wallets error: ${error.message}`);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch wallets'
-      });
+      res.status(500).json({ success: false, message: 'Failed to fetch wallets' });
     }
   },
 
-  // Get single wallet by currency
+  // =========================
+  // GET WALLET BY CURRENCY
+  // =========================
   getWalletByCurrency: async (req, res) => {
     try {
-      const { currency } = req.params;
       const wallet = await Wallet.findOne({
-        where: { 
-          user_id: req.user.id, 
-          currency: currency.toUpperCase(),
-          is_active: true 
+        where: {
+          user_id: req.user.id,
+          currency: req.params.currency.toUpperCase(),
+          is_active: true
         }
       });
 
       if (!wallet) {
-        return res.status(404).json({
-          success: false,
-          message: 'Wallet not found'
-        });
+        return res.status(404).json({ success: false, message: 'Wallet not found' });
       }
 
-      res.json({
-        success: true,
-        data: wallet
-      });
+      res.json({ success: true, data: wallet });
     } catch (error) {
-      logger.error(`Get wallet error: ${error.message}`);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch wallet'
-      });
+      res.status(500).json({ success: false, message: 'Error fetching wallet' });
     }
   },
 
-  // Get wallet balance
+  // =========================
+  // GET BALANCE
+  // =========================
   getBalance: async (req, res) => {
     try {
-      const { currency } = req.query;
-      
-      let query = { user_id: req.user.id, is_active: true };
-      if (currency) {
-        query.currency = currency.toUpperCase();
-      }
-
       const wallets = await Wallet.findAll({
-        where: query,
-        attributes: ['currency', 'balance', 'locked_balance', 'available_balance']
+        where: { user_id: req.user.id, is_active: true },
+        attributes: ['currency', 'balance', 'locked_balance']
       });
 
-      const totalBalance = wallets.reduce((sum, wallet) => sum + parseFloat(wallet.balance), 0);
-      const totalLocked = wallets.reduce((sum, wallet) => sum + parseFloat(wallet.locked_balance), 0);
-      const totalAvailable = wallets.reduce((sum, wallet) => sum + parseFloat(wallet.balance) - parseFloat(wallet.locked_balance), 0);
+      const summary = wallets.reduce(
+        (acc, w) => {
+          acc.total_balance += Number(w.balance || 0);
+          acc.total_locked += Number(w.locked_balance || 0);
+          return acc;
+        },
+        { total_balance: 0, total_locked: 0 }
+      );
 
-      res.json({
-        success: true,
-        data: {
-          wallets,
-          summary: {
-            total_balance: totalBalance,
-            total_locked: totalLocked,
-            total_available: totalAvailable,
-            wallet_count: wallets.length
-          }
-        }
-      });
+      res.json({ success: true, data: { wallets, summary } });
     } catch (error) {
-      logger.error(`Get balance error: ${error.message}`);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch balance'
-      });
+      res.status(500).json({ success: false, message: 'Balance fetch failed' });
     }
   },
 
-  // Generate deposit address
+  // =========================
+  // GENERATE DEPOSIT ADDRESS
+  // =========================
   generateDepositAddress: async (req, res) => {
     try {
       const { currency } = req.body;
-      
-      // Check if currency is supported
-      const supportedCurrency = constants.CRYPTOCURRENCIES.find(c => c.symbol === currency.toUpperCase());
-      if (!supportedCurrency) {
-        return res.status(400).json({
-          success: false,
-          message: 'Currency not supported'
-        });
-      }
 
-      let wallet = await Wallet.findOne({
-        where: { 
-          user_id: req.user.id, 
-          currency: currency.toUpperCase(),
-          wallet_type: 'spot'
+      const [wallet] = await Wallet.findOrCreate({
+        where: { user_id: req.user.id, currency: currency.toUpperCase() },
+        defaults: {
+          balance: 0,
+          locked_balance: 0,
+          is_active: true,
+          address: `DEP-${req.user.id}-${Date.now()}`
         }
       });
 
-      if (!wallet) {
-        // Create new wallet if doesn't exist
-        wallet = await Wallet.create({
-          user_id: req.user.id,
-          currency: currency.toUpperCase(),
-          wallet_type: 'spot',
-          wallet_address: `deposit_${req.user.id}_${currency}_${Date.now()}`,
-          is_active: true
-        });
-      }
-
-      // In production, generate actual blockchain address
-      // const address = await generateBlockchainAddress(currency, req.user.id);
-      
-      res.json({
-        success: true,
-        data: {
-          currency: wallet.currency,
-          wallet_address: wallet.wallet_address,
-          memo: `Deposit for user ${req.user.id}`,
-          min_deposit: constants.SETTINGS.MIN_DEPOSIT,
-          deposit_fee: constants.SETTINGS.DEPOSIT_FEE_PERCENTAGE
-        }
-      });
+      res.json({ success: true, data: { address: wallet.address, currency: wallet.currency } });
     } catch (error) {
-      logger.error(`Generate deposit address error: ${error.message}`);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to generate deposit address'
-      });
+      res.status(500).json({ success: false, message: 'Failed to generate address' });
     }
   },
 
-  // Transfer between users
+  // =========================
+  // DEPOSIT
+  // =========================
+  deposit: async (req, res) => {
+    const t = await sequelize.transaction();
+    try {
+      const { amount, currency, payment_method } = req.body;
+      const amountNum = parseFloat(amount);
+
+      if (isNaN(amountNum) || amountNum <= 0) {
+        throw new Error('Invalid deposit amount provided');
+      }
+
+      const [wallet] = await Wallet.findOrCreate({
+        where: { user_id: req.user.id, currency: currency.toUpperCase() },
+        defaults: {
+          balance: 0,
+          locked_balance: 0,
+          is_active: true,
+          address: `DEP-${req.user.id}-${Date.now()}`
+        },
+        transaction: t
+      });
+      console.log("===============")
+      console.log(wallet)
+      // AREA OF CHANGE: Using manual balance addition and .save() to ensure SQL reflection
+      const oldBalance = Number(wallet.balance);
+      wallet.balance = oldBalance + amountNum;
+      await wallet.save({ transaction: t });
+
+      const tx = await Transaction.create({
+        user_id: req.user.id,
+        type: 'deposit',
+        amount: amountNum,
+        currency: currency.toUpperCase(),
+        status: 'completed',
+        description: `Deposit via ${payment_method || 'direct'}`,
+        metadata: typeof payment_method === 'object' ? JSON.stringify(payment_method) : payment_method
+      }, { transaction: t });
+
+      await t.commit();
+      res.json({ success: true, message: 'Deposit successful', new_balance: wallet.balance, data: tx });
+
+    } catch (error) {
+      if (t) await t.rollback();
+      logger.error(`Deposit error: ${error.message}`);
+      res.status(400).json({ success: false, message: error.message });
+    }
+  },
+
+  // =========================
+  // INVEST FROM BALANCE
+  // =========================
+  investFromBalance: async (req, res) => {
+    const t = await sequelize.transaction();
+    try {
+      const { amount, plan_id, currency } = req.body;
+      const amountNum = parseFloat(amount);
+
+      const wallet = await Wallet.findOne({
+        where: { user_id: req.user.id, currency: currency.toUpperCase() },
+        transaction: t,
+        lock: t.LOCK.UPDATE
+      });
+
+      if (!wallet || Number(wallet.balance) < amountNum) {
+        throw new Error('Insufficient balance to start investment');
+      }
+
+      await wallet.decrement('balance', { by: amountNum, transaction: t });
+
+      const investment = await Investment.create({
+        user_id: req.user.id,
+        plan_id,
+        amount: amountNum,
+        currency: currency.toUpperCase(),
+        status: 'active'
+      }, { transaction: t });
+
+      await Transaction.create({
+        user_id: req.user.id,
+        type: 'investment',
+        amount: amountNum,
+        currency: currency.toUpperCase(),
+        status: 'completed',
+        description: `Investment in Plan #${plan_id}`
+      }, { transaction: t });
+
+      await t.commit();
+      res.json({ success: true, message: 'Investment successful', data: investment });
+
+    } catch (error) {
+      if (t) await t.rollback();
+      res.status(400).json({ success: false, message: error.message });
+    }
+  },
+
+  // =========================
+  // TRANSFER
+  // =========================
   transfer: async (req, res) => {
-    const transaction = await sequelize.transaction();
-    
+    const t = await sequelize.transaction();
     try {
       const { amount, currency, recipient_email, description } = req.body;
+      const numericAmount = parseFloat(amount);
 
-      // Validate minimum amount
-      if (amount < 0.1) {
-        await transaction.rollback();
-        return res.status(400).json({
-          success: false,
-          message: 'Minimum transfer amount is 0.1'
-        });
+      if (isNaN(numericAmount) || numericAmount < 0.1) {
+        throw new Error('Minimum transfer amount is 0.1');
       }
 
-      // Check sender wallet
       const senderWallet = await Wallet.findOne({
-        where: { 
-          user_id: req.user.id, 
-          currency: currency.toUpperCase(),
-          wallet_type: 'spot'
-        },
-        transaction
+        where: { user_id: req.user.id, currency: currency.toUpperCase() },
+        transaction: t,
+        lock: t.LOCK.UPDATE
       });
 
-      if (!senderWallet) {
-        await transaction.rollback();
-        return res.status(404).json({
-          success: false,
-          message: 'Sender wallet not found'
-        });
+      const fee = numericAmount * 0.01;
+      const totalDebit = numericAmount + fee;
+
+      if (!senderWallet || Number(senderWallet.balance) < totalDebit) {
+        throw new Error('Insufficient balance to cover amount and fee');
       }
 
-      // Check sufficient balance (including fee)
-      const fee = amount * 0.01; // 1% transfer fee
-      const totalAmount = amount + fee;
-      
-      if (parseFloat(senderWallet.balance) < totalAmount) {
-        await transaction.rollback();
-        return res.status(400).json({
-          success: false,
-          message: 'Insufficient balance'
-        });
-      }
-
-      // Find recipient
       const recipient = await User.findOne({
-        where: { email: recipient_email },
-        transaction
+        where: { email: recipient_email.toLowerCase() },
+        transaction: t
       });
 
-      if (!recipient) {
-        await transaction.rollback();
-        return res.status(404).json({
-          success: false,
-          message: 'Recipient not found'
-        });
+      if (!recipient || recipient.id === req.user.id) {
+        throw new Error('Invalid recipient email');
       }
 
-      // Get or create recipient wallet
-      let recipientWallet = await Wallet.findOne({
-        where: { 
-          user_id: recipient.id, 
-          currency: currency.toUpperCase(),
-          wallet_type: 'spot'
-        },
-        transaction
+      const [recipientWallet] = await Wallet.findOrCreate({
+        where: { user_id: recipient.id, currency: currency.toUpperCase() },
+        defaults: { balance: 0, is_active: true, address: `INT-${recipient.id}-${Date.now()}` },
+        transaction: t
       });
 
-      if (!recipientWallet) {
-        recipientWallet = await Wallet.create({
-          user_id: recipient.id,
-          currency: currency.toUpperCase(),
-          wallet_type: 'spot',
-          balance: 0,
-          wallet_address: `transfer_${recipient.id}_${currency}_${Date.now()}`,
-          is_active: true
-        }, { transaction });
-      }
+      await senderWallet.decrement('balance', { by: totalDebit, transaction: t });
+      await recipientWallet.increment('balance', { by: numericAmount, transaction: t });
 
-      // Update balances
-      senderWallet.balance = parseFloat(senderWallet.balance) - totalAmount;
-      await senderWallet.save({ transaction });
-
-      recipientWallet.balance = parseFloat(recipientWallet.balance) + amount;
-      await recipientWallet.save({ transaction });
-
-      // Create transactions
-      const senderTransaction = await Transaction.create({
-        user_id: req.user.id,
-        type: 'transfer_out',
-        amount: amount,
-        fee: fee,
-        net_amount: -totalAmount,
-        currency: currency.toUpperCase(),
-        status: 'completed',
-        description: description || `Transfer to ${recipient_email}`,
-        metadata: {
-          recipient_email,
-          recipient_id: recipient.id,
-          transfer_type: 'internal'
-        }
-      }, { transaction });
-
-      const recipientTransaction = await Transaction.create({
-        user_id: recipient.id,
-        type: 'transfer_in',
-        amount: amount,
-        fee: 0,
-        net_amount: amount,
-        currency: currency.toUpperCase(),
-        status: 'completed',
-        description: description || `Transfer from ${req.user.email}`,
-        metadata: {
-          sender_email: req.user.email,
-          sender_id: req.user.id,
-          transfer_type: 'internal'
-        }
-      }, { transaction });
-
-      await transaction.commit();
-
-      // Send notification (implement notification service)
-
-      res.json({
-        success: true,
-        message: 'Transfer completed successfully',
-        data: {
-          transaction_id: senderTransaction.id,
-          amount,
+      const txs = await Transaction.bulkCreate([
+        {
+          user_id: req.user.id,
+          type: 'transfer_out',
+          amount: numericAmount,
           fee,
-          total_deducted: totalAmount,
-          recipient: recipient_email,
-          timestamp: new Date()
+          currency: currency.toUpperCase(),
+          status: 'completed',
+          description: description || `Sent to ${recipient_email}`
+        },
+        {
+          user_id: recipient.id,
+          type: 'transfer_in',
+          amount: numericAmount,
+          fee: 0,
+          currency: currency.toUpperCase(),
+          status: 'completed',
+          description: `Received from ${req.user.email}`
         }
-      });
+      ], { transaction: t });
 
-      logger.info(`Transfer completed: ${req.user.email} -> ${recipient_email}, Amount: ${amount} ${currency}`);
+      await t.commit();
+      res.json({ success: true, message: 'Transfer successful', tx_id: txs[0].id });
+
     } catch (error) {
-      await transaction.rollback();
-      logger.error(`Transfer error: ${error.message}`);
-      res.status(500).json({
-        success: false,
-        message: 'Transfer failed'
-      });
+      if (t) await t.rollback();
+      res.status(400).json({ success: false, message: error.message });
     }
   },
 
-  // Withdraw crypto
+  // =========================
+  // WITHDRAW
+  // =========================
   withdraw: async (req, res) => {
-    const transaction = await sequelize.transaction();
-    
+    const t = await sequelize.transaction();
     try {
       const { amount, currency, wallet_address, network } = req.body;
+      const numericAmount = parseFloat(amount);
 
-      // Validate minimum withdrawal
-      if (amount < constants.SETTINGS.MIN_WITHDRAWAL) {
-        await transaction.rollback();
-        return res.status(400).json({
-          success: false,
-          message: `Minimum withdrawal amount is ${constants.SETTINGS.MIN_WITHDRAWAL}`
-        });
+      if (isNaN(numericAmount) || numericAmount < SETTINGS.MIN_WITHDRAWAL) {
+        throw new Error(`Minimum withdrawal is ${SETTINGS.MIN_WITHDRAWAL}`);
       }
 
-      // Check daily withdrawal limit
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      const todaysWithdrawals = await Transaction.sum('amount', {
-        where: {
-          user_id: req.user.id,
-          type: 'withdrawal',
-          status: 'completed',
-          currency: currency.toUpperCase(),
-          created_at: { [sequelize.Op.gte]: today }
-        },
-        transaction
-      });
-
-      const totalToday = todaysWithdrawals || 0;
-      if (totalToday + amount > constants.SETTINGS.DAILY_WITHDRAWAL_LIMIT) {
-        await transaction.rollback();
-        return res.status(400).json({
-          success: false,
-          message: `Daily withdrawal limit exceeded. Maximum: ${constants.SETTINGS.DAILY_WITHDRAWAL_LIMIT}`
-        });
-      }
-
-      // Check wallet balance
       const wallet = await Wallet.findOne({
-        where: { 
-          user_id: req.user.id, 
-          currency: currency.toUpperCase(),
-          wallet_type: 'spot'
-        },
-        transaction
+        where: { user_id: req.user.id, currency: currency.toUpperCase() },
+        transaction: t,
+        lock: t.LOCK.UPDATE
       });
 
-      if (!wallet) {
-        await transaction.rollback();
-        return res.status(404).json({
-          success: false,
-          message: 'Wallet not found'
-        });
+      if (!wallet) throw new Error('Wallet not found');
+
+      const fee = numericAmount * (SETTINGS.WITHDRAWAL_FEE_PERCENT / 100);
+      const totalAmount = numericAmount + fee;
+
+      if (Number(wallet.balance) < totalAmount) {
+        throw new Error('Insufficient balance');
       }
 
-      const fee = amount * (constants.SETTINGS.WITHDRAWAL_FEE_PERCENTAGE / 100);
-      const totalAmount = amount + fee;
+      await wallet.decrement('balance', { by: totalAmount, transaction: t });
+      await wallet.increment('locked_balance', { by: totalAmount, transaction: t });
 
-      if (parseFloat(wallet.balance) < totalAmount) {
-        await transaction.rollback();
-        return res.status(400).json({
-          success: false,
-          message: 'Insufficient balance'
-        });
-      }
-
-      // Update wallet balance
-      wallet.balance = parseFloat(wallet.balance) - totalAmount;
-      wallet.total_withdrawn = parseFloat(wallet.total_withdrawn) + amount;
-      await wallet.save({ transaction });
-
-      // Create withdrawal transaction
-      const withdrawalTransaction = await Transaction.create({
+      const withdrawalTx = await Transaction.create({
         user_id: req.user.id,
         type: 'withdrawal',
-        amount: amount,
-        fee: fee,
-        net_amount: -totalAmount,
+        amount: numericAmount,
+        fee,
         currency: currency.toUpperCase(),
         status: 'pending',
         to_address: wallet_address,
-        description: `Withdrawal to external wallet (${network})`,
-        metadata: {
-          network,
-          wallet_address,
-          withdrawal_type: 'external'
-        }
-      }, { transaction });
+        metadata: JSON.stringify({ network })
+      }, { transaction: t });
 
-      // Process blockchain withdrawal (in background)
-      processCryptoTransfer(withdrawalTransaction.id, wallet_address, amount, currency, network);
+      await t.commit();
+      res.json({ success: true, message: 'Withdrawal is pending admin approval', data: { tx_id: withdrawalTx.id } });
 
-      await transaction.commit();
-
-      res.json({
-        success: true,
-        message: 'Withdrawal request submitted',
-        data: {
-          transaction_id: withdrawalTransaction.id,
-          amount,
-          fee,
-          total_deducted: totalAmount,
-          wallet_address,
-          network,
-          status: 'pending',
-          estimated_time: '10-30 minutes'
-        }
-      });
-
-      logger.info(`Withdrawal requested: ${req.user.email}, Amount: ${amount} ${currency}`);
     } catch (error) {
-      await transaction.rollback();
-      logger.error(`Withdrawal error: ${error.message}`);
-      res.status(500).json({
-        success: false,
-        message: 'Withdrawal failed'
-      });
+      if (t) await t.rollback();
+      res.status(400).json({ success: false, message: error.message });
     }
   },
 
-  // Get transaction history
+  // =========================
+  // PROCESS WITHDRAWAL (ADMIN)
+  // =========================
+  processWithdrawal: async (req, res) => {
+    const t = await sequelize.transaction();
+    try {
+      const { transactionId, action } = req.body; 
+
+      const tx = await Transaction.findByPk(transactionId, { transaction: t });
+      if (!tx || tx.type !== 'withdrawal' || tx.status !== 'pending') {
+        throw new Error('Invalid or already processed transaction');
+      }
+
+      const wallet = await Wallet.findOne({
+        where: { user_id: tx.user_id, currency: tx.currency },
+        transaction: t
+      });
+
+      const totalAmount = Number(tx.amount) + Number(tx.fee);
+
+      if (action === 'approve') {
+        await wallet.decrement('locked_balance', { by: totalAmount, transaction: t });
+        tx.status = 'completed';
+      } else {
+        await wallet.decrement('locked_balance', { by: totalAmount, transaction: t });
+        await wallet.increment('balance', { by: totalAmount, transaction: t });
+        tx.status = 'failed';
+      }
+
+      await tx.save({ transaction: t });
+      await t.commit();
+      res.json({ success: true, message: `Withdrawal ${action}ed successfully` });
+
+    } catch (error) {
+      if (t) await t.rollback();
+      res.status(400).json({ success: false, message: error.message });
+    }
+  },
+
+  // =========================
+  // TRANSACTION HISTORY
+  // =========================
   getTransactionHistory: async (req, res) => {
     try {
-      const { type, currency, status, startDate, endDate, page = 1, limit = 20 } = req.query;
-      
-      const where = { user_id: req.user.id };
-      const offset = (page - 1) * limit;
-
-      if (type) where.type = type;
-      if (currency) where.currency = currency.toUpperCase();
-      if (status) where.status = status;
-      
-      if (startDate || endDate) {
-        where.created_at = {};
-        if (startDate) where.created_at[sequelize.Op.gte] = new Date(startDate);
-        if (endDate) where.created_at[sequelize.Op.lte] = new Date(endDate);
-      }
-
-      const { count, rows } = await Transaction.findAndCountAll({
-        where,
-        order: [['created_at', 'DESC']],
-        limit: parseInt(limit),
-        offset: parseInt(offset),
-        attributes: ['id', 'type', 'amount', 'fee', 'net_amount', 'currency', 'status', 'description', 'created_at', 'confirmed_at', 'metadata']
+      const history = await Transaction.findAll({
+        where: { user_id: req.user.id },
+        order: [['createdAt', 'DESC']],
+        limit: 50
       });
 
-      res.json({
-        success: true,
-        data: {
-          transactions: rows,
-          pagination: {
-            total: count,
-            page: parseInt(page),
-            limit: parseInt(limit),
-            pages: Math.ceil(count / limit)
-          }
-        }
-      });
+      res.json({ success: true, data: history });
+
     } catch (error) {
-      logger.error(`Get transaction history error: ${error.message}`);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch transaction history'
-      });
-    }
-  },
-
-  // Get transaction by ID
-  getTransactionById: async (req, res) => {
-    try {
-      const { id } = req.params;
-      
-      const transaction = await Transaction.findOne({
-        where: { id, user_id: req.user.id },
-        attributes: ['id', 'type', 'amount', 'fee', 'net_amount', 'currency', 'status', 'from_address', 'to_address', 'tx_hash', 'description', 'created_at', 'confirmed_at', 'metadata']
-      });
-
-      if (!transaction) {
-        return res.status(404).json({
-          success: false,
-          message: 'Transaction not found'
-        });
-      }
-
-      res.json({
-        success: true,
-        data: transaction
-      });
-    } catch (error) {
-      logger.error(`Get transaction by ID error: ${error.message}`);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch transaction'
-      });
+      res.status(500).json({ success: false, message: 'Failed to fetch history' });
     }
   }
 };

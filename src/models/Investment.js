@@ -1,5 +1,5 @@
 const { DataTypes } = require('sequelize');
-const sequelize = require('../config/database');
+const { sequelize } = require('../config/database');
 
 const Investment = sequelize.define('Investment', {
   id: {
@@ -7,54 +7,23 @@ const Investment = sequelize.define('Investment', {
     defaultValue: DataTypes.UUIDV4,
     primaryKey: true
   },
-  userId: {
-    type: DataTypes.UUID,
-    allowNull: false
+  user_id: { type: DataTypes.UUID, allowNull: false },
+  // START: Changed plan_id to INTEGER to match Plan.js
+  plan_id: { 
+    type: DataTypes.INTEGER, 
+    allowNull: false 
   },
-  planId: {
-    type: DataTypes.UUID,
-    allowNull: false
-  },
-  walletId: {
-    type: DataTypes.UUID,
-    allowNull: false
-  },
-  amount: {
-    type: DataTypes.DECIMAL(20, 8),
-    allowNull: false
-  },
-  currency: {
-    type: DataTypes.STRING,
-    allowNull: false
-  },
-  interestRate: {
-    type: DataTypes.DECIMAL(5, 2),
-    allowNull: false
-  },
-  durationDays: {
-    type: DataTypes.INTEGER,
-    allowNull: false
-  },
-  totalProfit: {
-    type: DataTypes.DECIMAL(20, 8),
-    defaultValue: 0
-  },
-  profitPaid: {
-    type: DataTypes.DECIMAL(20, 8),
-    defaultValue: 0
-  },
-  status: {
-    type: DataTypes.STRING,
-    defaultValue: 'active'
-  },
-  startDate: {
-    type: DataTypes.DATE,
-    defaultValue: DataTypes.NOW
-  },
-  endDate: {
-    type: DataTypes.DATE,
-    allowNull: false
-  }
+  // END: plan_id change
+  amount: { type: DataTypes.DECIMAL(36, 18), allowNull: false },
+  currency: { type: DataTypes.STRING(10), allowNull: false },
+  interest_rate: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
+  duration_days: { type: DataTypes.INTEGER, allowNull: false },
+  status: { type: DataTypes.ENUM('active', 'completed', 'cancelled', 'pending'), defaultValue: 'active' },
+  start_date: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
+  end_date: { type: DataTypes.DATE, allowNull: false }
+}, {
+  tableName: 'investments',
+  underscored: true
 });
 
 module.exports = Investment;

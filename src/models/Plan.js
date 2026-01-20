@@ -1,12 +1,14 @@
 const { DataTypes } = require('sequelize');
-const sequelize = require('../config/database');
+const { sequelize } = require('../config/database');
 
 const Plan = sequelize.define('Plan', {
+  // START: Changed id from UUID to INTEGER to match constants.js
   id: {
-    type: DataTypes.UUID,
-    defaultValue: DataTypes.UUIDV4,
-    primaryKey: true
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
   },
+  // END: ID change
   name: {
     type: DataTypes.STRING,
     allowNull: false,
@@ -16,30 +18,40 @@ const Plan = sequelize.define('Plan', {
     type: DataTypes.TEXT,
     allowNull: true
   },
-  interestRate: {
-    type: DataTypes.DECIMAL(5, 2),
+  interest_rate: {
+    type: DataTypes.DECIMAL(10, 2),
     allowNull: false
   },
-  durationDays: {
+  duration_days: {
     type: DataTypes.INTEGER,
     allowNull: false
   },
-  minAmount: {
-    type: DataTypes.DECIMAL(20, 8),
+  min_amount: {
+    type: DataTypes.DECIMAL(36, 18),
     allowNull: false
   },
-  maxAmount: {
-    type: DataTypes.DECIMAL(20, 8),
-    allowNull: true
+  max_amount: {
+    type: DataTypes.DECIMAL(36, 18),
+    allowNull: false
+  },
+  payout_frequency: {
+    // START: Added 'maturity' to match your default plans
+    type: DataTypes.ENUM('daily', 'weekly', 'monthly', 'maturity'),
+    defaultValue: 'maturity'
+    // END: Added maturity
   },
   currency: {
-    type: DataTypes.STRING,
+    type: DataTypes.STRING(10),
     defaultValue: 'USDT'
   },
-  isActive: {
+  is_active: {
     type: DataTypes.BOOLEAN,
     defaultValue: true
   }
+}, {
+  tableName: 'plans',
+  underscored: true,
+  timestamps: true
 });
 
 module.exports = Plan;

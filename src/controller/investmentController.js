@@ -1,508 +1,308 @@
 const { sequelize } = require('../config/database');
+const { Op, literal } = require('sequelize');
 const Investment = require('../models/Investment');
 const Plan = require('../models/Plan');
 const Wallet = require('../models/Wallet');
 const Transaction = require('../models/Transaction');
+const User = require('../models/User');
 const constants = require('../config/constants');
 const logger = require('../utils/logger');
-const { calculateInvestmentReturns } = require('../utils/investmentUtils');
+
+/**
+ * Internal Helper: Calculate next payout date
+ */
+const getNextPayoutDate = (startDate, frequency, durationDays = 30) => {
+  const date = new Date(startDate);
+  if (frequency === 'daily') {
+    date.setDate(date.getDate() + 1);
+  } else if (frequency === 'weekly') {
+    date.setDate(date.getDate() + 7);
+  } else if (frequency === 'monthly') {
+    date.setMonth(date.getMonth() + 1);
+  } else if (frequency === 'maturity') {
+    date.setDate(date.getDate() + Number(durationDays));
+  } else {
+    return null;
+  }
+  return date;
+};
 
 const investmentController = {
-  // Get all investment plans
+  // 1. Get all investment plans
   getPlans: async (req, res) => {
     try {
       const plans = await Plan.findAll({
         where: { is_active: true },
-        order: [['priority', 'ASC'], ['min_amount', 'ASC']],
-        attributes: ['id', 'name', 'description', 'min_amount', 'max_amount', 'duration', 'interest_rate', 'payout_frequency', 'features']
+        order: [['min_amount', 'ASC']],
       });
-
-      res.json({
-        success: true,
-        data: plans
-      });
+      res.json({ success: true, data: plans });
     } catch (error) {
       logger.error(`Get plans error: ${error.message}`);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch investment plans'
-      });
+      res.status(500).json({ success: false, message: 'Failed to fetch investment plans' });
     }
   },
 
-  // Create new investment
-  createInvestment: async (req, res) => {
-    const transaction = await sequelize.transaction();
-    
+  // 1b. Create Plan (Admin)
+  createPlan: async (req, res) => {
     try {
-      const { planId, amount, currency, autoRenew } = req.body;
-
-      // Get plan details
-      const plan = await Plan.findByPk(planId, { transaction });
-      if (!plan || !plan.is_active) {
-        await transaction.rollback();
-        return res.status(404).json({
-          success: false,
-          message: 'Investment plan not found or inactive'
-        });
-      }
-
-      // Validate amount against plan limits
-      if (amount < plan.min_amount) {
-        await transaction.rollback();
-        return res.status(400).json({
-          success: false,
-          message: `Minimum investment amount is ${plan.min_amount}`
-        });
-      }
-
-      if (plan.max_amount && amount > plan.max_amount) {
-        await transaction.rollback();
-        return res.status(400).json({
-          success: false,
-          message: `Maximum investment amount is ${plan.max_amount}`
-        });
-      }
-
-      // Check wallet balance
-      const wallet = await Wallet.findOne({
-        where: { 
-          user_id: req.user.id, 
-          currency: currency.toUpperCase(),
-          wallet_type: 'spot'
-        },
-        transaction
+      const { 
+        name, 
+        description, 
+        min_amount, 
+        max_amount, 
+        interest_rate, 
+        duration_days, 
+        payout_frequency 
+      } = req.body;
+      
+      const plan = await Plan.create({
+        name,
+        description,
+        min_amount,
+        max_amount,
+        interest_rate,
+        duration_days, 
+        payout_frequency: payout_frequency || 'maturity', 
+        is_active: true
       });
 
-      if (!wallet) {
-        await transaction.rollback();
-        return res.status(404).json({
-          success: false,
-          message: 'Wallet not found'
-        });
+      res.status(201).json({ success: true, data: plan });
+    } catch (error) {
+      logger.error(`Create plan error: ${error.message}`);
+      
+      if (error.name === 'SequelizeValidationError' || error.name === 'SequelizeUniqueConstraintError') {
+        const messages = error.errors.map(e => e.message).join(', ');
+        return res.status(400).json({ success: false, message: `Validation Error: ${messages}` });
       }
 
-      if (parseFloat(wallet.balance) < amount) {
-        await transaction.rollback();
-        return res.status(400).json({
-          success: false,
-          message: 'Insufficient balance'
-        });
+      res.status(400).json({ success: false, message: error.message });
+    }
+  },
+
+  // 2. Create new investment
+  createInvestment: async (req, res) => {
+    const t = await sequelize.transaction();
+    try {
+      // START: Destructured inputs to handle various frontend naming conventions
+      const { planId, plan_id, amount, currency, autoRenew, auto_renew } = req.body;
+      const targetPlanId = planId || plan_id;
+      const isAutoRenew = autoRenew || auto_renew || false;
+      const investAmount = Number(amount);
+
+      if (!targetPlanId) throw new Error('Plan ID is required');
+      if (!req.user || !req.user.id) throw new Error('User authentication failed');
+
+      // START: Lookup using the Integer ID as per current database structure
+      const plan = await Plan.findByPk(targetPlanId, { transaction: t });
+      if (!plan) throw new Error(`Plan not found. Please ensure Plan ID ${targetPlanId} exists in the database.`);
+      if (!plan.is_active) throw new Error('This investment plan is currently inactive');
+
+      if (investAmount < plan.min_amount || (plan.max_amount && investAmount > plan.max_amount)) {
+        throw new Error(`Amount must be between ${plan.min_amount} and ${plan.max_amount}`);
       }
 
-      // Calculate expected returns
-      const expectedReturn = calculateInvestmentReturns(amount, plan.interest_rate, plan.duration);
+      const targetCurrency = (currency || 'USDT').toUpperCase();
+
+      const wallet = await Wallet.findOne({
+        where: { user_id: req.user.id, currency: targetCurrency },
+        transaction: t,
+        lock: t.LOCK.UPDATE
+      });
+
+      if (!wallet || Number(wallet.balance) < investAmount) {
+        throw new Error(`Insufficient ${targetCurrency} balance. Current balance: ${wallet ? wallet.balance : 0}`);
+      }
+
       const startDate = new Date();
+      const durationVal = Number(plan.duration_days || 30);
       const endDate = new Date();
-      endDate.setDate(endDate.getDate() + plan.duration);
+      endDate.setDate(endDate.getDate() + durationVal);
 
-      // Update wallet balance
-      wallet.balance = parseFloat(wallet.balance) - amount;
-      wallet.locked_balance = parseFloat(wallet.locked_balance) + amount;
-      await wallet.save({ transaction });
+      // Deduct from wallet
+      await wallet.update({
+        balance: literal(`balance - ${investAmount}`),
+        locked_balance: literal(`locked_balance + ${investAmount}`)
+      }, { transaction: t });
 
-      // Create investment record
       const investment = await Investment.create({
         user_id: req.user.id,
-        plan_id: planId,
-        amount: amount,
-        currency: currency.toUpperCase(),
+        plan_id: targetPlanId,
+        amount: investAmount,
+        currency: targetCurrency,
         interest_rate: plan.interest_rate,
-        expected_return: expectedReturn,
         start_date: startDate,
         end_date: endDate,
         status: 'active',
-        auto_renew: autoRenew || false,
-        payout_frequency: plan.payout_frequency,
-        next_payout_date: getNextPayoutDate(startDate, plan.payout_frequency)
-      }, { transaction });
+        auto_renew: isAutoRenew,
+        duration_days: durationVal, // Field added to match Investment model
+        next_payout_date: getNextPayoutDate(startDate, plan.payout_frequency, durationVal)
+      }, { transaction: t });
 
-      // Create transaction record
-      const investmentTransaction = await Transaction.create({
+      await Transaction.create({
         user_id: req.user.id,
         type: 'investment',
-        amount: amount,
-        fee: 0,
-        net_amount: -amount,
-        currency: currency.toUpperCase(),
+        amount: investAmount,
+        currency: targetCurrency,
         status: 'completed',
-        description: `Investment in ${plan.name} plan`,
-        metadata: {
-          plan_id: planId,
-          plan_name: plan.name,
-          investment_id: investment.id,
-          duration: plan.duration,
-          interest_rate: plan.interest_rate
-        }
-      }, { transaction });
+        description: `TradePro: Invested in ${plan.name} plan`,
+        reference_id: investment.id 
+      }, { transaction: t });
 
-      // Update investment with transaction ID
-      investment.transaction_id = investmentTransaction.id;
-      await investment.save({ transaction });
-
-      await transaction.commit();
-
-      res.json({
-        success: true,
-        message: 'Investment created successfully',
-        data: {
-          investment: {
-            id: investment.id,
-            plan_name: plan.name,
-            amount,
-            currency: currency.toUpperCase(),
-            interest_rate: plan.interest_rate,
-            expected_return: expectedReturn,
-            start_date: startDate,
-            end_date: endDate,
-            status: 'active',
-            next_payout_date: investment.next_payout_date
-          }
-        }
-      });
-
-      logger.info(`Investment created: User ${req.user.id}, Plan: ${plan.name}, Amount: ${amount} ${currency}`);
+      await t.commit();
+      res.json({ success: true, data: investment });
+      // END: Logic for creating investment
     } catch (error) {
-      await transaction.rollback();
-      logger.error(`Create investment error: ${error.message}`);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to create investment'
-      });
+      if (t) await t.rollback();
+      logger.error(`Investment Error: ${error.message}`);
+      res.status(400).json({ success: false, message: error.message });
     }
   },
 
-  // Get user's investments
+  // 3. Get user's portfolio
   getUserInvestments: async (req, res) => {
     try {
       const { status } = req.query;
-      
       const where = { user_id: req.user.id };
       if (status) where.status = status;
 
       const investments = await Investment.findAll({
         where,
-        include: [
-          {
-            model: Plan,
-            as: 'plan',
-            attributes: ['name', 'description', 'interest_rate', 'duration']
-          }
-        ],
-        order: [['created_at', 'DESC']],
-        attributes: ['id', 'amount', 'currency', 'interest_rate', 'expected_return', 'earned_amount', 'start_date', 'end_date', 'status', 'next_payout_date', 'auto_renew']
+        include: [{ model: Plan, as: 'plan', attributes: ['name', 'interest_rate'] }],
+        order: [['createdAt', 'DESC']]
       });
 
-      // Calculate statistics
-      const totalInvested = investments.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
-      const totalEarned = investments.reduce((sum, inv) => sum + parseFloat(inv.earned_amount), 0);
-      const activeInvestments = investments.filter(inv => inv.status === 'active').length;
-
-      res.json({
-        success: true,
-        data: {
-          investments,
-          statistics: {
-            total_invested: totalInvested,
-            total_earned: totalEarned,
-            active_investments: activeInvestments,
-            total_investments: investments.length
-          }
-        }
-      });
+      res.json({ success: true, data: investments });
     } catch (error) {
-      logger.error(`Get user investments error: ${error.message}`);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch investments'
-      });
+      logger.error(`Portfolio Fetch Error: ${error.message}`);
+      res.status(500).json({ success: false, message: 'Fetch error' });
     }
   },
 
-  // Get investment details
+  // 4. Get specific investment details
   getInvestmentDetails: async (req, res) => {
     try {
-      const { id } = req.params;
-
       const investment = await Investment.findOne({
-        where: { id, user_id: req.user.id },
-        include: [
-          {
-            model: Plan,
-            as: 'plan',
-            attributes: ['name', 'description', 'interest_rate', 'duration', 'features']
-          },
-          {
-            model: Transaction,
-            as: 'transaction',
-            attributes: ['id', 'created_at']
-          }
-        ]
+        where: { id: req.params.id, user_id: req.user.id },
+        include: [{ model: Plan, as: 'plan' }]
       });
-
-      if (!investment) {
-        return res.status(404).json({
-          success: false,
-          message: 'Investment not found'
-        });
-      }
-
-      // Calculate days remaining
-      const now = new Date();
-      const endDate = new Date(investment.end_date);
-      const daysRemaining = Math.max(0, Math.ceil((endDate - now) / (1000 * 60 * 60 * 24)));
-
-      // Calculate estimated daily/weekly/monthly earnings
-      const earningsBreakdown = calculateEarningsBreakdown(
-        investment.amount,
-        investment.interest_rate,
-        investment.payout_frequency,
-        investment.start_date,
-        investment.end_date
-      );
-
-      res.json({
-        success: true,
-        data: {
-          investment,
-          details: {
-            days_remaining: daysRemaining,
-            days_elapsed: Math.ceil((now - new Date(investment.start_date)) / (1000 * 60 * 60 * 24)),
-            progress_percentage: calculateProgressPercentage(investment.start_date, investment.end_date),
-            earnings_breakdown: earningsBreakdown
-          }
-        }
-      });
+      if (!investment) return res.status(404).json({ success: false, message: 'Investment not found' });
+      res.json({ success: true, data: investment });
     } catch (error) {
-      logger.error(`Get investment details error: ${error.message}`);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch investment details'
-      });
+      res.status(500).json({ success: false, message: 'Error fetching details' });
     }
   },
 
-  // Request early withdrawal (with penalty)
+  // 5. Early Withdrawal Logic
   requestEarlyWithdrawal: async (req, res) => {
-    const transaction = await sequelize.transaction();
-    
+    const t = await sequelize.transaction();
     try {
-      const { id } = req.params;
-
       const investment = await Investment.findOne({
-        where: { id, user_id: req.user.id, status: 'active' },
-        transaction
+        where: { id: req.params.id, user_id: req.user.id, status: 'active' },
+        transaction: t
       });
 
-      if (!investment) {
-        await transaction.rollback();
-        return res.status(404).json({
-          success: false,
-          message: 'Active investment not found'
-        });
-      }
+      if (!investment) throw new Error('Active investment not found');
 
-      // Check if early withdrawal is allowed (after minimum period)
-      const daysElapsed = Math.ceil((new Date() - new Date(investment.start_date)) / (1000 * 60 * 60 * 24));
-      if (daysElapsed < 7) { // Minimum 7 days
-        await transaction.rollback();
-        return res.status(400).json({
-          success: false,
-          message: 'Early withdrawal allowed only after 7 days'
-        });
-      }
+      const penalty = Number(investment.amount) * 0.20;
+      const returnAmount = Number(investment.amount) - penalty;
 
-      // Calculate penalty (20% of expected interest)
-      const expectedInterest = investment.expected_return - investment.amount;
-      const penalty = expectedInterest * 0.2;
-      const returnAmount = investment.amount - penalty;
-
-      // Update investment status
-      investment.status = 'cancelled';
-      investment.earned_amount = 0;
-      await investment.save({ transaction });
-
-      // Update wallet
       const wallet = await Wallet.findOne({
-        where: {
-          user_id: req.user.id,
-          currency: investment.currency,
-          wallet_type: 'spot'
-        },
-        transaction
+        where: { user_id: req.user.id, currency: investment.currency },
+        transaction: t
       });
 
-      if (wallet) {
-        wallet.locked_balance = parseFloat(wallet.locked_balance) - investment.amount;
-        wallet.balance = parseFloat(wallet.balance) + returnAmount;
-        await wallet.save({ transaction });
-      }
+      await wallet.update({
+        locked_balance: literal(`locked_balance - ${investment.amount}`),
+        balance: literal(`balance + ${returnAmount}`)
+      }, { transaction: t });
 
-      // Create transaction
+      investment.status = 'cancelled';
+      await investment.save({ transaction: t });
+
       await Transaction.create({
         user_id: req.user.id,
         type: 'withdrawal',
         amount: returnAmount,
         fee: penalty,
-        net_amount: returnAmount,
         currency: investment.currency,
         status: 'completed',
-        description: 'Early withdrawal from investment (penalty applied)',
-        metadata: {
-          investment_id: investment.id,
-          penalty_applied: penalty,
-          original_amount: investment.amount,
-          days_elapsed: daysElapsed
-        }
-      }, { transaction });
+        description: 'Early investment liquidation (Penalty applied)'
+      }, { transaction: t });
 
-      await transaction.commit();
-
-      res.json({
-        success: true,
-        message: 'Early withdrawal processed successfully',
-        data: {
-          original_amount: investment.amount,
-          penalty: penalty,
-          returned_amount: returnAmount,
-          days_elapsed: daysElapsed
-        }
-      });
-
-      logger.info(`Early withdrawal: Investment ${id}, User ${req.user.id}, Returned: ${returnAmount}`);
+      await t.commit();
+      res.json({ success: true, returned: returnAmount, penalty });
     } catch (error) {
-      await transaction.rollback();
-      logger.error(`Early withdrawal error: ${error.message}`);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to process early withdrawal'
-      });
+      if (t) await t.rollback();
+      res.status(400).json({ success: false, message: error.message });
     }
   },
 
-  // Get investment earnings history
+  // 6. Get Earnings History
   getEarningsHistory: async (req, res) => {
     try {
-      const { investmentId, startDate, endDate, page = 1, limit = 20 } = req.query;
-      const offset = (page - 1) * limit;
-
-      const where = {
-        user_id: req.user.id,
-        type: 'earnings'
-      };
-
-      if (investmentId) {
-        where.metadata = { investment_id: investmentId };
-      }
-
-      if (startDate || endDate) {
-        where.created_at = {};
-        if (startDate) where.created_at[sequelize.Op.gte] = new Date(startDate);
-        if (endDate) where.created_at[sequelize.Op.lte] = new Date(endDate);
-      }
-
-      const { count, rows } = await Transaction.findAndCountAll({
-        where,
-        order: [['created_at', 'DESC']],
-        limit: parseInt(limit),
-        offset: parseInt(offset),
-        attributes: ['id', 'amount', 'currency', 'created_at', 'metadata']
+      const history = await Transaction.findAll({
+        where: { 
+          user_id: req.user.id, 
+          type: 'interest',
+          [Op.or]: [
+            { description: { [Op.like]: `%${req.params.id}%` } }
+          ]
+        },
+        order: [['createdAt', 'DESC']]
       });
 
-      // Calculate total earnings
-      const totalEarnings = await Transaction.sum('amount', {
-        where: {
-          user_id: req.user.id,
-          type: 'earnings'
-        }
-      });
-
-      res.json({
-        success: true,
-        data: {
-          earnings: rows,
-          total_earnings: totalEarnings || 0,
-          pagination: {
-            total: count,
-            page: parseInt(page),
-            limit: parseInt(limit),
-            pages: Math.ceil(count / limit)
-          }
-        }
-      });
+      res.json({ success: true, data: history });
     } catch (error) {
-      logger.error(`Get earnings history error: ${error.message}`);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch earnings history'
+      logger.error(`getEarningsHistory Error: ${error.message}`);
+      res.status(500).json({ success: false, message: `Fetch error: ${error.message}` });
+    }
+  },
+
+  // --- Admin Section ---
+  getAllInvestments: async (req, res) => {
+    try {
+      const all = await Investment.findAll({
+        include: [
+          { model: User, as: 'user', attributes: ['email', 'first_name', 'last_name'] }, 
+          { model: Plan, as: 'plan' }
+        ]
       });
+      res.json({ success: true, data: all });
+    } catch (error) {
+      res.status(500).json({ success: false, message: 'Admin error' });
+    }
+  },
+
+  getInvestmentStats: async (req, res) => {
+    try {
+      const stats = await Investment.findAll({
+        attributes: [
+          'status',
+          [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
+          [sequelize.fn('SUM', sequelize.col('amount')), 'total_amount']
+        ],
+        group: ['status']
+      });
+      res.json({ success: true, data: stats });
+    } catch (error) {
+      res.status(500).json({ success: false, message: 'Stats error' });
+    }
+  },
+
+  updateInvestmentStatus: async (req, res) => {
+    try {
+      const { status } = req.body;
+      const validStatuses = ['active', 'completed', 'cancelled', 'pending'];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ success: false, message: 'Invalid status type' });
+      }
+
+      await Investment.update({ status }, { where: { id: req.params.id } });
+      res.json({ success: true, message: 'Status updated successfully' });
+    } catch (error) {
+      res.status(500).json({ success: false, message: 'Update failed' });
     }
   }
 };
-
-// Helper functions
-function getNextPayoutDate(startDate, frequency) {
-  const date = new Date(startDate);
-  
-  switch (frequency) {
-    case 'daily':
-      date.setDate(date.getDate() + 1);
-      break;
-    case 'weekly':
-      date.setDate(date.getDate() + 7);
-      break;
-    case 'monthly':
-      date.setMonth(date.getMonth() + 1);
-      break;
-    default:
-      return null; // For 'end' frequency
-  }
-  
-  return date;
-}
-
-function calculateProgressPercentage(startDate, endDate) {
-  const now = new Date();
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  
-  const totalDuration = end - start;
-  const elapsed = now - start;
-  
-  return Math.min(100, Math.max(0, (elapsed / totalDuration) * 100));
-}
-
-function calculateEarningsBreakdown(amount, interestRate, frequency, startDate, endDate) {
-  const annualInterest = amount * (interestRate / 100);
-  
-  switch (frequency) {
-    case 'daily':
-      return {
-        daily: annualInterest / 365,
-        weekly: annualInterest / 52,
-        monthly: annualInterest / 12,
-        total: annualInterest * (getDaysBetween(startDate, endDate) / 365)
-      };
-    case 'weekly':
-      return {
-        weekly: annualInterest / 52,
-        monthly: annualInterest / 12,
-        total: annualInterest * (getDaysBetween(startDate, endDate) / 365)
-      };
-    case 'monthly':
-      return {
-        monthly: annualInterest / 12,
-        total: annualInterest * (getDaysBetween(startDate, endDate) / 365)
-      };
-    default:
-      return {
-        total: annualInterest * (getDaysBetween(startDate, endDate) / 365)
-      };
-  }
-}
-
-function getDaysBetween(startDate, endDate) {
-  return Math.ceil((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24));
-}
 
 module.exports = investmentController;

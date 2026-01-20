@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TradePro | Market Data</title>
+    <link rel="stylesheet" href="/css/market.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+     <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-coins"></i> TradePro Cryptocurrencies</h1>
+            <p>Real-time market data and analytics</p>
+            <div class="api-status">
+                <div class="status-indicator"></div>
+                <span>Live data from CoinGecko API</span>
+            </div>
+        </div>
+
+        <div class="filters">
+            <div class="search-box">
+                <input type="text" placeholder="Search cryptocurrencies..." id="searchInput">
+            </div>
+            <button class="filter-btn active" data-filter="all">All</button>
+            <button class="filter-btn" data-filter="positive">Gainers</button>
+            <button class="filter-btn" data-filter="negative">Losers</button>
+            <button class="filter-btn" data-filter="top10">Top 10</button>
+            <button class="refresh-btn" id="refreshBtn">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+        </div>
+
+        <div class="crypto-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Pair</th>
+                        <th>Price</th>
+                        <th>24h Change</th>
+                        <th>Market Cap</th>
+                        <th>Volume (24h)</th>
+                        <th>Last Updated</th>
+                    </tr>
+                </thead>
+                <tbody id="cryptoTableBody">
+                    <tr>
+                        <td colspan="7" class="loading">
+                            <i class="fas fa-spinner fa-spin"></i> Loading cryptocurrency data...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="pagination" id="pagination">
+            </div>
+
+        <div class="stats-bar">
+            <div class="stat-item">
+                <div class="stat-value" id="totalCoins">-</div>
+                <div class="stat-label">Total Coins</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="positive24h">-</div>
+                <div class="stat-label">Positive 24h</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="negative24h">-</div>
+                <div class="stat-label">Negative 24h</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="totalMarketCap">-</div>
+                <div class="stat-label">Total Market Cap</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="/js/market.js"></script>
+</body>
+</html>

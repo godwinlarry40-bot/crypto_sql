@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up - TradePro</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/sign-up.css">
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+<body>
+    <div class="signup-wrapper">
+        <div class="signup-header">
+            <h1><i class="fas fa-chart-line"></i> TradePro</h1>
+            <p>Join thousands of traders using TradePro</p>
+        </div>
+
+        <form class="signup-form" id="signupForm" autocomplete="off">
+            <div class="error-message" id="form-error" style="display: none; color: #ff4444; margin-bottom: 15px; text-align: center; font-weight: bold;"></div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="firstName">First Name</label>
+                    <input type="text" id="firstName" name="firstName" required placeholder="Lucky">
+                    <div class="field-error" id="firstName-error" style="color: #ff4444; font-size: 12px; display: none;"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="lastName">Last Name</label>
+                    <input type="text" id="lastName" name="lastName" required placeholder="Felix">
+                    <div class="field-error" id="lastName-error" style="color: #ff4444; font-size: 12px; display: none;"></div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <input type="email" id="email" name="email" required autocomplete="new-email" placeholder="email@example.com">
+                <div class="field-error" id="email-error" style="color: #ff4444; font-size: 12px; display: none;"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="phone">Phone Number</label>
+                <input type="tel" id="phone" name="phone" required placeholder="+1234567890">
+                <div class="field-error" id="phone-error" style="color: #ff4444; font-size: 12px; display: none;"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="referralCode">Referral Code (Optional)</label>
+                <input type="text" id="referralCode" name="referralCode" placeholder="ABCDEF">
+                <div class="field-error" id="referralCode-error" style="color: #ff4444; font-size: 12px; display: none;"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <div class="password-input" style="position: relative;">
+                    <input type="password" id="password" name="password" required placeholder="Min. 8 characters" autocomplete="new-password">
+                    <button type="button" class="toggle-password" id="togglePassword" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer;">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+                <div class="password-strength" style="height: 4px; background: #eee; margin-top: 5px;">
+                    <div class="strength-bar" id="strengthBar" style="height: 100%; width: 0; transition: 0.3s;"></div>
+                </div>
+                <div class="field-error" id="password-error" style="color: #ff4444; font-size: 12px; display: none;"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="confirmPassword">Confirm Password</label>
+                <input type="password" id="confirmPassword" required placeholder="Repeat password" autocomplete="new-password">
+                <div class="field-error" id="confirmPassword-error" style="color: #ff4444; font-size: 12px; display: none;"></div>
+            </div>
+
+            <div class="form-group checkbox-group">
+                <input type="checkbox" id="terms" required>
+                <label for="terms">I agree to the <a href="#" class="link">Terms of Service</a> & <a href="#" class="link">Privacy Policy</a></label>
+                <div class="field-error" id="terms-error" style="color: #ff4444; font-size: 12px; display: none;"></div>
+            </div>
+
+            <button type="submit" class="submit-btn" id="submitBtn">
+                <span class="btn-text">Create Account</span>
+                <div class="btn-loader" style="display: none; margin-left: 10px;">
+                    <i class="fas fa-spinner fa-spin"></i>
+                </div>
+            </button>
+            
+            <div class="success-message" id="signup-success" style="display: none; color: #00c853; text-align: center; margin-top: 15px; font-weight: bold;">
+                Account created successfully! Redirecting...
+            </div>
+
+            <div class="login-link" style="text-align: center; margin-top: 15px;">
+                Already have an account? <a href="/signin" class="link">Sign In</a>
+            </div>
+        </form>
+    </div>
+
+    <script src="/js/sign-up.js"></script>
+</body>
+</html>

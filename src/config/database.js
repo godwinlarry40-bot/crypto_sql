@@ -2,14 +2,14 @@ const { Sequelize } = require('sequelize');
 require('dotenv').config();
 
 const sequelize = new Sequelize(
-  process.env.DB_NAME,
-  process.env.DB_USER,
-  process.env.DB_PASSWORD,
+  process.env.DB_NAME,      // crypto_api
+  process.env.DB_USER,      // root
+  process.env.DB_PASSWORD,  // Changed from DB_PASS to match your .env
   {
     host: process.env.DB_HOST,
     port: process.env.DB_PORT || 3306,
     dialect: 'mysql',
-    logging: process.env.NODE_ENV === 'development' ? console.log : false,
+    logging: process.env.NODE_ENV === 'development' ? (msg) => console.log(`[Sequelize]: ${msg}`) : false,
     pool: {
       max: 10,
       min: 0,
@@ -25,14 +25,15 @@ const sequelize = new Sequelize(
   }
 );
 
-// Test database connection
 const testConnection = async () => {
   try {
     await sequelize.authenticate();
     console.log('✅ MySQL Database connected successfully');
+    return true;
   } catch (error) {
-    console.error('❌ Unable to connect to the database:', error);
-    process.exit(1);
+    console.error('❌ Database Connection Error:', error.message);
+    if (process.env.NODE_ENV === 'production') process.exit(1);
+    return false;
   }
 };
 

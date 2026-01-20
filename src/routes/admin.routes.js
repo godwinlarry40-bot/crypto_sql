@@ -1,34 +1,29 @@
 const express = require('express');
 const router = express.Router();
-const adminController = require('../controllers/adminController');
+const adminController = require('../controller/adminController');
 const auth = require('../middleware/auth');
-const validation = require('../middleware/validation');
 
-// All admin routes require authentication and admin role
-router.use(auth.verifyToken);
+// --- Global Protection ---
+router.use(auth.protect);
 router.use(auth.checkRole('admin', 'super_admin'));
 
-// User management
+// --- User Management ---
 router.get('/users', adminController.getAllUsers);
 router.get('/users/:id', adminController.getUserById);
 router.put('/users/:id', adminController.updateUser);
 
-// Transaction management
+// --- Transaction Management ---
 router.get('/transactions', adminController.getAllTransactions);
 router.put('/transactions/:id/status', adminController.updateTransactionStatus);
 
-// Investment management
+// --- Investment & Plan Management ---
 router.get('/investments', adminController.getAllInvestments);
+router.post('/plans', auth.checkRole('super_admin'), adminController.createPlan);
+router.put('/plans/:id', auth.checkRole('super_admin'), adminController.updatePlan);
+router.delete('/plans/:id', auth.checkRole('super_admin'), adminController.deletePlan);
 
-// Plan management
-router.post('/plans', adminController.createPlan);
-router.put('/plans/:id', adminController.updatePlan);
-router.delete('/plans/:id', adminController.deletePlan);
-
-// Platform statistics
+// --- Platform Insights ---
 router.get('/stats', adminController.getPlatformStats);
-
-// Dashboard overview
 router.get('/dashboard', adminController.getDashboardOverview);
 
 module.exports = router;

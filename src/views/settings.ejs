@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://code.jquery.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com;">
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/settings.css">
+    
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+<body class="dark-theme">
+    <div class="settings-container">
+        <header class="settings-header">
+            <div class="header-left">
+                <h1><i class="fas fa-cog"></i> Account Settings</h1>
+                <p>Manage your profile, security, and trading preferences</p>
+            </div>
+            <div class="user-profile-summary">
+                <div class="user-text">
+                    <span class="welcome-msg">Welcome back,</span>
+                    <span id="userName" class="user-name-bold"><%= user.name %></span>
+                </div>
+                <img src="https://ui-avatars.com/api/?name=<%= user.name %>&background=0D8ABC&color=fff" alt="Avatar" class="header-avatar">
+            </div>
+        </header>
+        
+        <div class="settings-grid">
+            <aside class="settings-sidebar">
+                <nav>
+                    <ul>
+                        <li class="nav-item active" data-section="profile">
+                            <i class="fas fa-user"></i> <span>Profile Details</span>
+                        </li>
+                        <li class="nav-item" data-section="security">
+                            <i class="fas fa-shield-alt"></i> <span>Security</span>
+                        </li>
+                        <li class="nav-item" data-section="trading">
+                            <i class="fas fa-chart-line"></i> <span>Trading Prefs</span>
+                        </li>
+                        <li class="nav-item" data-section="payment">
+                            <i class="fas fa-credit-card"></i> <span>Payments</span>
+                        </li>
+                        <li class="nav-item" data-section="notifications">
+                            <i class="fas fa-bell"></i> <span>Notifications</span>
+                        </li>
+                        <li class="nav-item" data-section="appearance">
+                            <i class="fas fa-palette"></i> <span>Appearance</span>
+                        </li>
+                    </ul>
+                </nav>
+            </aside>
+            
+            <main class="settings-content">
+                <section class="settings-section active" id="profile">
+                    <div class="section-header">
+                        <h2>Profile Settings</h2>
+                        <p>This information is used for identity verification.</p>
+                    </div>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="fullName">Full Name</label>
+                            <div class="input-wrapper">
+                                <i class="fas fa-user input-icon"></i>
+                                <input type="text" id="fullName" placeholder="Full Name">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="email">Email Address</label>
+                            <div class="input-wrapper">
+                                <i class="fas fa-envelope input-icon"></i>
+                                <input type="email" id="email" placeholder="Email Address">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="phone">Phone Number</label>
+                            <div class="input-wrapper">
+                                <i class="fas fa-phone input-icon"></i>
+                                <input type="tel" id="phone" placeholder="+1 (555) 000-0000">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="country">Country</label>
+                            <select id="country">
+                                <option value="us">United States</option>
+                                <option value="uk">United Kingdom</option>
+                                <option value="ca">Canada</option>
+                                <option value="ng">Nigeria</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group full-width">
+                        <label for="bio">Professional Bio</label>
+                        <textarea id="bio" rows="3" placeholder="Tell us about your trading experience"></textarea>
+                    </div>
+                    <button type="button" class="btn-save" id="saveProfile">
+                        <i class="fas fa-check-circle"></i> Update Profile
+                    </button>
+                    <div class="status-msg" id="profile-status"></div>
+                </section>
+                
+                <section class="settings-section" id="security">
+                    <div class="section-header">
+                        <h2>Security & Privacy</h2>
+                        <p>Keep your account secure with 2FA and strong passwords.</p>
+                    </div>
+                    <div class="security-card">
+                        <div class="form-group">
+                            <label>Change Password</label>
+                            <input type="password" id="currentPassword" placeholder="Current Password" style="margin-bottom: 10px;">
+                            <input type="password" id="newPassword" placeholder="New Password" style="margin-bottom: 10px;">
+                            <input type="password" id="confirmPassword" placeholder="Confirm New Password">
+                        </div>
+                    </div>
+                    
+                    <div class="two-factor-box">
+                        <div class="2fa-header" style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; margin: 20px 0;">
+                            <div style="display: flex; align-items: center; gap: 15px;">
+                                <i class="fas fa-fingerprint" style="font-size: 2rem; color: #00bcd4;"></i>
+                                <div>
+                                    <h3 style="margin: 0;">Two-Factor Authentication (2FA)</h3>
+                                    <p style="margin: 0; font-size: 0.9rem; color: #888;">Highly recommended for wallet safety.</p>
+                                </div>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="enable2fa">
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <button type="button" class="btn-save" id="btnUpdateSecurity">
+                        <i class="fas fa-shield-alt"></i> Save Security
+                    </button>
+                    <div class="status-msg" id="security-status"></div>
+                </section>
+
+                <section class="settings-section" id="trading">
+                    <div class="section-header">
+                        <h2>Trading Preferences</h2>
+                    </div>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Default Currency</label>
+                            <select id="defaultPair">
+                                <option value="btc-usd">BTC/USD</option>
+                                <option value="eth-usd">ETH/USD</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Leverage Level</label>
+                            <select id="maxLeverage">
+                                <option value="2">2x (Conservative)</option>
+                                <option value="10">10x (Aggressive)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-save">Save Trading Prefs</button>
+                </section>
+
+                <section class="settings-section" id="payment">
+                    <div class="section-header">
+                        <h2>Withdrawal Methods</h2>
+                    </div>
+                    <div class="payment-tabs" style="display: flex; gap: 10px; margin-bottom: 20px;">
+                        <button type="button" class="p-tab active" data-pay="bank"><i class="fas fa-university"></i> Bank</button>
+                        <button type="button" class="p-tab" data-pay="crypto"><i class="fab fa-bitcoin"></i> Crypto</button>
+                    </div>
+                    <div class="payment-body">
+                        <div class="form-group">
+                            <label>Wallet Address / IBAN</label>
+                            <input type="text" placeholder="Enter details...">
+                        </div>
+                    </div>
+                    <button type="button" class="btn-save">Update Payment Info</button>
+                </section>
+
+                <section class="settings-section" id="appearance">
+                    <div class="section-header">
+                        <h2>Appearance & Display</h2>
+                        <p>Customize the interface to suit your viewing preference.</p>
+                    </div>
+                    <div class="form-group">
+                        <label>Interface Theme</label>
+                        <div class="theme-options" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 10px;">
+                            <div class="theme-option active" style="padding: 20px; border: 2px solid #00bcd4; border-radius: 10px; text-align: center; cursor: pointer;">
+                                <i class="fas fa-moon"></i><br>Dark
+                            </div>
+                            <div class="theme-option" style="padding: 20px; border: 1px solid #444; border-radius: 10px; text-align: center; cursor: pointer;">
+                                <i class="fas fa-sun"></i><br>Light
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Font Size</label>
+                        <input type="range" min="12" max="20" value="14" class="slider-range" style="width: 100%;">
+                    </div>
+                    <button type="button" class="btn-save">Apply Theme</button>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <script src="/js/settings.js"></script> 
+</body>
+</html>

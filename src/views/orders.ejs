@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Investment Orders | TradePro</title>
+    <link rel="stylesheet" href="/css/orders.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="bg-dark">
+    <div class="dashboard-wrapper">
+        <header class="orders-header">
+            <div class="header-content">
+                <h2><i class="fas fa-file-invoice-dollar"></i> My Investment Portfolio</h2>
+                <p>Track your capital growth and plan maturities in real-time.</p>
+            </div>
+            <div class="status-filters">
+                <button class="filter-btn active" data-status="all">All Orders</button>
+                <button class="filter-btn" data-status="active">Active</button>
+                <button class="filter-btn" data-status="completed">Completed</button>
+            </div>
+            </header>
+
+        <main class="orders-content">
+            <div class="table-container shadow-lg">
+                <table class="orders-table">
+                    <thead>
+                        <tr>
+                            <th>Transaction Date</th>
+                            <th>Investment Plan</th>
+                            <th>Principal Amount</th>
+                            <th>Expected ROI</th>
+                            <th>Maturity Date</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="orders-tbody">
+                        <tr>
+                            <td colspan="6" class="text-center">
+                                <div class="spinner"></div>
+                                <p>Syncing with blockchain...</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="/js/orders.js"></script>
+</body>
+</html>

@@ -1,0 +1,311 @@
+:root {
+    --color-bg-dark: #121212;
+    --color-bg-card: #1e1e1e;
+    --color-text-light: #e0e0e0;
+    --color-primary: #007bff; /* Blue for action buttons */
+    --color-accent: #00d494; /* Green/Teal for gains */
+    --color-danger: #dc3545; /* Red for losses/withdrawals */
+    --color-secondary: #6c757d;
+    --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    --border-radius: 8px;
+    --spacing-md: 16px;
+    --spacing-lg: 24px;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color:white;
+    color: var(--color-text-light);
+    font-family: var(--font-family);
+    min-height: 100vh;
+}
+
+/* --- Layout Container --- */
+.dashboard-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: var(--spacing-lg);
+}
+
+/* --- Header & Security Status --- */
+.dashboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: var(--spacing-lg);
+    border-bottom: 1px solid #333;
+    margin-bottom: var(--spacing-lg);
+}
+
+.dashboard-header h1 {
+    font-size: 1.8rem;
+    color: var(--color-accent);
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+
+.security-status span {
+    margin-right: var(--spacing-md);
+    font-size: 0.9rem;
+}
+
+.verified {
+    color: var(--color-accent);
+}
+
+/* --- Card Styles --- */
+.card {
+    background-color: var(--color-bg-card);
+    padding: var(--spacing-lg);
+    border-radius: var(--border-radius);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+.card h3 {
+    margin-bottom: var(--spacing-md);
+    font-size: 1.25rem;
+    border-bottom: 1px solid #333;
+    padding-bottom: 10px;
+}
+
+/* --- Buttons --- */
+.btn {
+    padding: 10px 15px;
+    border: none;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-weight: 600;
+    transition: background-color 0.2s;
+    font-size: 0.9rem;
+}
+
+.btn-primary {
+    background-color: var(--color-primary);
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #0069d9;
+}
+
+.btn-secondary {
+    background-color: var(--color-secondary);
+    color: white;
+}
+
+.btn-secondary:hover {
+    background-color: #5a6268;
+}
+
+/* --- Grid Layout (Desktop) --- */
+.dashboard-grid {
+    display: grid;
+    /* 2 columns: Wide main column (70%) and a narrow sidebar (30%) */
+    grid-template-columns: 2fr 1fr;
+    grid-template-rows: auto 1fr;
+    gap: var(--spacing-md);
+}
+
+/* Define areas for better control */
+.portfolio-summary { grid-column: 1 / 2; }
+.quick-actions     { grid-column: 2 / 3; }
+.wallet-holdings   { grid-column: 1 / 2; }
+.recent-transactions { grid-column: 2 / 3; }
+
+
+/* --- 1. Portfolio Summary & Quick Actions --- */
+.portfolio-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.summary-total .value-lg {
+    font-size: 3rem;
+    font-weight: 700;
+    margin: 5px 0;
+}
+
+.value-change {
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.gain { color: var(--color-accent); }
+.loss { color: var(--color-danger); }
+.neutral { color: var(--color-text-light); }
+
+.quick-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 200px; /* Match height of summary for balance */
+}
+
+.quick-actions .btn {
+    width: 100%;
+}
+
+.btn-withdraw {
+    background-color: var(--color-danger);
+}
+.btn-withdraw:hover {
+    background-color: #bd2130;
+}
+
+/* --- 2. Holdings Table --- */
+.wallet-holdings table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    font-size: 0.9rem;
+}
+
+.wallet-holdings th, .wallet-holdings td {
+    padding: 12px 10px;
+    border-bottom: 1px solid #333;
+}
+
+.wallet-holdings thead th {
+    color: var(--color-secondary);
+    font-weight: 400;
+    text-transform: uppercase;
+}
+
+.coin-icon {
+    font-size: 1.2rem;
+    margin-right: 8px;
+    color: #ffd700; /* Default coin color */
+}
+/* Specific coin color overrides (optional) */
+.fa-btc { color: #f7931a; }
+.fa-ethereum { color: #627eea; }
+.fa-dollar-sign { color: var(--color-secondary); }
+
+
+/* --- 3. Recent Transactions --- */
+.transaction-list {
+    margin-bottom: var(--spacing-md);
+}
+
+.transaction {
+    display: flex;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px dashed #333;
+}
+
+.transaction:last-child {
+    border-bottom: none;
+}
+
+.transaction i {
+    font-size: 1.2rem;
+    margin-right: var(--spacing-md);
+}
+.deposit i { color: var(--color-accent); }
+.withdrawal i { color: var(--color-danger); }
+
+.tx-details {
+    flex-grow: 1;
+}
+
+.tx-details p {
+    font-weight: 600;
+}
+
+.status {
+    font-size: 0.8rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 500;
+}
+.completed { background-color: rgba(0, 212, 148, 0.2); color: var(--color-accent); }
+.pending { background-color: rgba(255, 193, 7, 0.2); color: #ffc107; }
+
+.tx-amount {
+    font-weight: 600;
+}
+
+.full-width {
+    width: 100%;
+}
+
+/* --- Sign Out Button Styles --- */
+.logout-btn {
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background-color 0.2s;
+    text-align: left;
+    width: 100%;
+    margin-top: 10px;
+}
+
+.logout-btn:hover {
+    background-color: #bd2130;
+}
+
+.header-logout {
+    margin-left: var(--spacing-md);
+    padding: 8px 12px;
+    font-size: 0.9rem;
+}
+
+/* Add to existing sidebar styles */
+.sidebar ul li:last-child {
+    border-top: 1px solid #333;
+    margin-top: 10px;
+    padding-top: 10px;
+}
+
+/* --- Responsiveness (Tablet and Mobile) --- */
+@media (max-width: 1024px) {
+    .dashboard-grid {
+        /* Stack everything into a single column on smaller screens */
+        grid-template-columns: 1fr;
+    }
+    .portfolio-summary {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .summary-chart {
+        margin-top: var(--spacing-md);
+        width: 100%;
+        text-align: center;
+    }
+    .quick-actions {
+        flex-direction: row;
+        gap: 8px;
+        min-height: auto;
+    }
+}
+
+@media (max-width: 600px) {
+    .quick-actions {
+        /* Stack actions vertically on mobile */
+        flex-direction: column;
+    }
+    .dashboard-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .header-actions {
+        margin-top: 10px;
+        width: 100%;
+        justify-content: space-between;
+    }
+}

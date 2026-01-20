@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TradePro - Home</title>
+    <link rel="stylesheet" href="/css/broker.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+</head>
+<body>
+    
+<main class="main">
+    <section class="hero">
+        <h1>Trade Crypto, Forex, and More</h1>
+        <p>Professional trading platform with advanced tools for serious traders.</p>
+        <button class="btn btn-primary"><a href="/signup" style="color: inherit; text-decoration: none;">Get Started</a></button>
+    </section>
+
+    <section class="features">
+        <div class="feature-card">
+            <h3>Real-time Charts</h3>
+            <p>Analyze market trends with live interactive charts.</p>
+        </div>
+        <div class="feature-card">
+            <h3>High Leverage</h3>
+            <p>Access leverage up to 100x on select markets.</p>
+        </div>
+        <div class="feature-card">
+            <h3>Secure Wallet</h3>
+            <p>Keep your funds safe with industry-standard security measures.</p>
+        </div>
+    </section>
+
+    <section class="market-watch">
+        <h2>Market Watch</h2>
+        <div id="apiStatus" class="api-status"></div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Pair</th>
+                    <th>Price</th>
+                    <th>Change</th>
+                    <th>Market Cap</th> <th>Last Update</th>
+                </tr>
+            </thead>
+            <tbody id="marketData">
+                <tr>
+                    <td colspan="5" style="text-align: center;">Initializing market feed...</td>
+                </tr>
+            </tbody>
+        </table>
+        <p id="lastUpdate" style="font-size: 0.8rem; color: #666; margin-top: 10px;"></p>
+    </section>  
+
+    <section class="order-form">
+        <div class="all-form">
+            <div class="pic">
+                <img src="/image/2.jpeg" alt="Trade Chart">
+            </div>
+            <div class="form">
+                <h2>Empowering traders to succeed</h2>
+                <p>TradePro is a regulated and secure platform for Crypto, <br>Investing, and CFD trading.</p>
+            </div>
+            <div class="photo">
+                <img src="/image/download.jpeg" alt="Dashboard Preview">
+            </div>
+        </div>
+    </section> 
+</main>
+
+<%- include('partials/footer') %>
+
+<script src="/js/broker.js"></script>
+</body>
+</html>

@@ -1,5 +1,5 @@
 const { DataTypes } = require('sequelize');
-const sequelize = require('../config/database');
+const { sequelize } = require('../config/database');
 
 const Wallet = sequelize.define('Wallet', {
   id: {
@@ -7,35 +7,61 @@ const Wallet = sequelize.define('Wallet', {
     defaultValue: DataTypes.UUIDV4,
     primaryKey: true
   },
-  userId: {
+  user_id: {
     type: DataTypes.UUID,
     allowNull: false
   },
   address: {
     type: DataTypes.STRING,
-    allowNull: false,
-    unique: true
+    // CHANGE: Kept as false per your requirement, ensuring generation happens in controller
+    allowNull: false, 
+    unique: true,
+    comment: 'The deposit address for this specific wallet/currency'
   },
   currency: {
-    type: DataTypes.STRING,
-    allowNull: false
+    type: DataTypes.STRING(10),
+    allowNull: false,
+    set(val) { this.setDataValue('currency', val.toUpperCase()); }
   },
   balance: {
-    type: DataTypes.DECIMAL(20, 8),
-    defaultValue: 0
+    type: DataTypes.DECIMAL(36, 18),
+    defaultValue: 0,
+    // CHANGE: Added Getter to ensure mathematical operations treat this as a number
+    get() {
+      const value = this.getDataValue('balance');
+      return value === null ? 0 : parseFloat(value);
+    },
+    validate: { min: 0 }
   },
-  availableBalance: {
-    type: DataTypes.DECIMAL(20, 8),
-    defaultValue: 0
+  locked_balance: {
+    type: DataTypes.DECIMAL(36, 18),
+    defaultValue: 0,
+    // CHANGE: Added Getter to prevent string-based math errors
+    get() {
+      const value = this.getDataValue('locked_balance');
+      return value === null ? 0 : parseFloat(value);
+    },
+    validate: { min: 0 }
   },
-  lockedBalance: {
-    type: DataTypes.DECIMAL(20, 8),
-    defaultValue: 0
+  available_balance: {
+    type: DataTypes.VIRTUAL,
+    get() {
+      // CHANGE: Now uses the fixed getters above for accurate subtraction
+      return this.balance - this.locked_balance;
+    }
   },
-  isActive: {
+  is_active: {
     type: DataTypes.BOOLEAN,
     defaultValue: true
   }
+}, {
+  tableName: 'wallets',
+  // CHANGE: Ensures user_id becomes user_id in SQL and createdAt becomes created_at
+  underscored: true, 
+  timestamps: true,
+  indexes: [
+    { unique: true, fields: ['user_id', 'currency'] }
+  ]
 });
 
 module.exports = Wallet;

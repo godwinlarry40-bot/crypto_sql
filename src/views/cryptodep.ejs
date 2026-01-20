@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= locals.title ? title : 'Crypto Deposit' %></title>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    
+    <link rel="stylesheet" href="/css/cryptodep.css"> 
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo"><i class="fas fa-chart-line"></i> TradePro</div>
+            <h1>Crypto Deposit</h1>
+            <p>Add funds using popular cryptocurrencies</p>
+        </header>
+
+        <div class="deposit-form">
+            <div class="form-header">
+                <div class="method-icon"><i class="fab fa-bitcoin"></i></div>
+                <h2 class="form-title">Crypto Information</h2>
+            </div>
+            <form id="cryptoForm">
+                <div class="form-group">
+                    <label for="crypto-type">Select Cryptocurrency</label>
+                    <select id="crypto-type" class="form-control" required>
+                        <option value="">Choose a cryptocurrency</option>
+                        <option value="bitcoin">Bitcoin (BTC)</option>
+                        <option value="ethereum">Ethereum (ETH)</option>
+                        <option value="usdt">Tether (USDT)</option>
+                        <option value="usdc">USD Coin (USDC)</option>
+                    </select>
+                </div>
+                
+                <div class="crypto-details">
+                    <h3>Deposit Address</h3>
+                    <div class="qr-code">
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=SELECT_CRYPTO" alt="QR Code">
+                    </div>
+                    <div class="address-box" id="deposit-address">Please select a currency</div>
+                    <button type="button" id="copy-address" class="submit-btn" style="background: var(--gray);">Copy Address</button>
+                    
+                    <div class="crypto-warning">
+                        <strong><i class="fas fa-exclamation-triangle"></i> Important:</strong> Send only the selected cryptocurrency to this address. Sending other assets may result in permanent loss.
+                    </div>
+                </div>
+                
+                <div class="crypto-icons">
+                    <div class="crypto-icon"><i class="fab fa-bitcoin"></i></div>
+                    <div class="crypto-icon"><i class="fab fa-ethereum"></i></div>
+                    <div class="crypto-icon"><i class="fas fa-coins"></i></div>
+                </div>
+                
+                <div class="success-message" id="crypto-success" style="display: none;">Address copied successfully!</div>
+            </form>
+        </div>
+    </div>
+
+    <footer>
+        <p>© 2026 TradePro Platform. All rights reserved.</p>
+    </footer>
+
+    <script src="/js/cryptodep.js"></script>
+</body>
+</html>

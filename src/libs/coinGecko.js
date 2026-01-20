@@ -2,8 +2,8 @@ const axios = require('axios');
 const NodeCache = require('node-cache');
 const logger = require('../utils/logger');
 
-// Cache for API responses
-const cache = new NodeCache({ stdTTL: 30 }); // 30 seconds TTL
+// CHANGE: Increased TTL for prices to 2 minutes to stay within free tier limits
+const cache = new NodeCache({ stdTTL: 120 });
 
 class CoinGeckoClient {
   constructor() {
@@ -12,227 +12,116 @@ class CoinGeckoClient {
       timeout: 10000,
       headers: {
         'Accept': 'application/json',
-        'Content-Type': 'application/json'
+        // Note: Demo API keys use 'x-cg-demo-api-key', Pro keys use 'x-cg-pro-api-key'
+        'x-cg-demo-api-key': process.env.COINGECKO_API_KEY 
       }
     });
+
+    this.symbolToId = {
+      'btc': 'bitcoin',
+      'eth': 'ethereum',
+      'usdt': 'tether',
+      'bnb': 'binancecoin',
+      'sol': 'solana',
+      'trx': 'tron',
+      'usdc': 'usd-coin',
+      'doge': 'dogecoin'
+    };
   }
 
-  // Get coin list
-  async getCoinList() {
+  // 1. Get Simple Price
+  async getSimplePrice(symbols, vsCurrency = 'usd') {
     try {
-      const cacheKey = 'coin_list';
+      if (!symbols || symbols.length === 0) return {};
+
+      // CHANGE: Filter out any null/undefined and map to IDs
+      const ids = symbols
+        .filter(s => !!s)
+        .map(s => this.symbolToId[s.toLowerCase()] || s.toLowerCase())
+        .join(',');
+
+      const cacheKey = `price_${ids}_${vsCurrency}`;
       const cached = cache.get(cacheKey);
-      
-      if (cached) {
-        return cached;
-      }
-      
-      const response = await this.client.get('/coins/list');
-      cache.set(cacheKey, response.data, 3600); // Cache for 1 hour
-      
+      if (cached) return cached;
+
+      const response = await this.client.get('/simple/price', {
+        params: {
+          ids: ids,
+          vs_currencies: vsCurrency,
+          include_24hr_change: true
+        }
+      });
+
+      // CHANGE: Added more aggressive caching to prevent 429 Rate Limit errors
+      cache.set(cacheKey, response.data); 
       return response.data;
     } catch (error) {
-      logger.error(`Get coin list error: ${error.message}`);
-      throw error;
+      this._handleError(error, 'Simple Price');
+      // CHANGE: Return an empty object so the portfolio service doesn't crash on .map()
+      return {};
     }
   }
 
-  // Get market data
-  async getMarkets(vsCurrency = 'usd', limit = 100) {
+  // 2. Get Historical Data
+  async getHistoricalData(coinId, days = 7) {
     try {
-      const cacheKey = `markets_${vsCurrency}_${limit}`;
+      const id = this.symbolToId[coinId.toLowerCase()] || coinId.toLowerCase();
+      const cacheKey = `hist_${id}_${days}`;
       const cached = cache.get(cacheKey);
-      
-      if (cached) {
-        return cached;
-      }
-      
+      if (cached) return cached;
+
+      const response = await this.client.get(`/coins/${id}/market_chart`, {
+        params: { vs_currency: 'usd', days: days }
+      });
+
+      if (!response.data || !response.data.prices) return [];
+
+      const formatted = response.data.prices.map(p => ({
+        x: p[0], 
+        y: parseFloat(p[1].toFixed(2)) 
+      }));
+
+      cache.set(cacheKey, formatted, 600); // Cache historical data for 10 mins
+      return formatted;
+    } catch (error) {
+      this._handleError(error, 'Historical Data');
+      return [];
+    }
+  }
+
+  // 3. Get Market Summary
+  async getMarketSummary(limit = 20) {
+    try {
+      const cacheKey = `market_summary_${limit}`;
+      const cached = cache.get(cacheKey);
+      if (cached) return cached;
+
       const response = await this.client.get('/coins/markets', {
         params: {
-          vs_currency: vsCurrency,
+          vs_currency: 'usd',
           order: 'market_cap_desc',
           per_page: limit,
-          page: 1,
-          sparkline: false,
-          price_change_percentage: '1h,24h,7d'
+          sparkline: true,
+          price_change_percentage: '24h'
         }
       });
-      
-      cache.set(cacheKey, response.data, 30); // Cache for 30 seconds
-      
+
+      cache.set(cacheKey, response.data, 300); // 5 minute cache
       return response.data;
     } catch (error) {
-      logger.error(`Get markets error: ${error.message}`);
-      throw error;
+      this._handleError(error, 'Market Summary');
+      return [];
     }
   }
 
-  // Get coin data by ID
-  async getCoinData(coinId, includeTickers = false) {
-    try {
-      const cacheKey = `coin_${coinId}`;
-      const cached = cache.get(cacheKey);
-      
-      if (cached) {
-        return cached;
-      }
-      
-      const response = await this.client.get(`/coins/${coinId}`, {
-        params: {
-          localization: false,
-          tickers: includeTickers,
-          market_data: true,
-          community_data: true,
-          developer_data: true,
-          sparkline: false
-        }
-      });
-      
-      cache.set(cacheKey, response.data, 60); // Cache for 1 minute
-      
-      return response.data;
-    } catch (error) {
-      logger.error(`Get coin data error: ${error.message}`);
-      throw error;
-    }
-  }
-
-  // Get historical data
-  async getHistoricalData(coinId, days = 7, vsCurrency = 'usd') {
-    try {
-      const cacheKey = `historical_${coinId}_${days}_${vsCurrency}`;
-      const cached = cache.get(cacheKey);
-      
-      if (cached) {
-        return cached;
-      }
-      
-      const response = await this.client.get(`/coins/${coinId}/market_chart`, {
-        params: {
-          vs_currency: vsCurrency,
-          days: days
-        }
-      });
-      
-      cache.set(cacheKey, response.data, 300); // Cache for 5 minutes
-      
-      return response.data;
-    } catch (error) {
-      logger.error(`Get historical data error: ${error.message}`);
-      throw error;
-    }
-  }
-
-  // Get OHLC data
-  async getOHLC(coinId, days = 7, vsCurrency = 'usd') {
-    try {
-      const response = await this.client.get(`/coins/${coinId}/ohlc`, {
-        params: {
-          vs_currency: vsCurrency,
-          days: days
-        }
-      });
-      
-      return response.data;
-    } catch (error) {
-      logger.error(`Get OHLC error: ${error.message}`);
-      throw error;
-    }
-  }
-
-  // Get global data
-  async getGlobalData() {
-    try {
-      const cacheKey = 'global_data';
-      const cached = cache.get(cacheKey);
-      
-      if (cached) {
-        return cached;
-      }
-      
-      const response = await this.client.get('/global');
-      cache.set(cacheKey, response.data, 60); // Cache for 1 minute
-      
-      return response.data;
-    } catch (error) {
-      logger.error(`Get global data error: ${error.message}`);
-      throw error;
-    }
-  }
-
-  // Get trending coins
-  async getTrending() {
-    try {
-      const response = await this.client.get('/search/trending');
-      return response.data;
-    } catch (error) {
-      logger.error(`Get trending error: ${error.message}`);
-      throw error;
-    }
-  }
-
-  // Get exchange rates
-  async getExchangeRates() {
-    try {
-      const cacheKey = 'exchange_rates';
-      const cached = cache.get(cacheKey);
-      
-      if (cached) {
-        return cached;
-      }
-      
-      const response = await this.client.get('/exchange_rates');
-      cache.set(cacheKey, response.data, 300); // Cache for 5 minutes
-      
-      return response.data;
-    } catch (error) {
-      logger.error(`Get exchange rates error: ${error.message}`);
-      throw error;
-    }
-  }
-
-  // Search coins
-  async searchCoins(query) {
-    try {
-      const response = await this.client.get('/search', {
-        params: { query }
-      });
-      
-      return response.data;
-    } catch (error) {
-      logger.error(`Search coins error: ${error.message}`);
-      throw error;
-    }
-  }
-
-  // Get supported vs_currencies
-  async getSupportedVsCurrencies() {
-    try {
-      const cacheKey = 'vs_currencies';
-      const cached = cache.get(cacheKey);
-      
-      if (cached) {
-        return cached;
-      }
-      
-      const response = await this.client.get('/simple/supported_vs_currencies');
-      cache.set(cacheKey, response.data, 3600); // Cache for 1 hour
-      
-      return response.data;
-    } catch (error) {
-      logger.error(`Get vs currencies error: ${error.message}`);
-      throw error;
-    }
-  }
-
-  // Ping API
-  async ping() {
-    try {
-      const response = await this.client.get('/ping');
-      return response.data;
-    } catch (error) {
-      logger.error(`Ping error: ${error.message}`);
-      throw error;
+  _handleError(error, context) {
+    const status = error.response?.status;
+    if (status === 429) {
+      logger.error(`🚨 CoinGecko Rate Limit Hit (${context}). Using cached data if available.`);
+    } else if (status === 401 || status === 403) {
+      logger.error(`🔑 CoinGecko API Key Invalid or Expired`);
+    } else {
+      logger.error(`❌ CoinGecko Error (${context}): ${error.message}`);
     }
   }
 }

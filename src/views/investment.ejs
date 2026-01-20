@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TradePro Investments</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/investment.css">
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div>
+                <h1><i class="fas fa-chart-line"></i> TradePro</h1>
+                <div class="subtitle">Professional Crypto Investment Platform</div>
+            </div>
+            <div class="row">
+                <button class="secondary" id="view-terms">View Terms & Conditions</button>
+                <button class="secondary" id="view-risk">Risk Disclosure</button>
+            </div>
+        </header>
+
+        <section class="grid">
+            <div class="notice">
+                <strong class="small">Important:</strong>
+                <div class="small" style="margin-top:6px">Start Your Investment Journey Today, Don't Just Save Money, Make It Grow</div>
+            </div>
+
+            <div class="plans">
+                <div class="card">
+                    <div class="plan-icon"><i class="fas fa-rocket"></i></div>
+                    <div class="plan-title">
+                        <div>
+                            <div style="font-weight:700">Starter Plan</div>
+                            <div class="small muted">30 Days • 5% Return</div>
+                        </div>
+                        <div class="price">Fixed</div>
+                    </div>
+                    <div class="features">
+                        - Min: $100 | Max: $4,999<br>
+                        - Payout: At Maturity
+                    </div>
+                    <button class="btn" data-plan="short">Invest Now</button>
+                </div>
+
+                <div class="card">
+                    <div class="plan-icon"><i class="fas fa-chart-line"></i></div>
+                    <div class="plan-title">
+                        <div>
+                            <div style="font-weight:700">Professional Plan</div>
+                            <div class="small muted">180 Days • 10% Return</div>
+                        </div>
+                        <div class="price">Fixed</div>
+                    </div>
+                    <div class="features">
+                        - Min: $5,000 | Max: $19,999<br>
+                        - Payout: At Maturity
+                    </div>
+                    <button class="btn" data-plan="mid">Invest Now</button>
+                </div>
+
+                <div class="card">
+                    <div class="plan-icon"><i class="fas fa-gem"></i></div>
+                    <div class="plan-title">
+                        <div>
+                            <div style="font-weight:700">Enterprise Plan</div>
+                            <div class="small muted">365 Days • 15% Return</div>
+                        </div>
+                        <div class="price">Fixed</div>
+                    </div>
+                    <div class="features">
+                        - Min: $20,000 | Max: $1M+<br>
+                        - Payout: At Maturity
+                    </div>
+                    <button class="btn" data-plan="long">Invest Now</button>
+                </div>
+            </div>
+
+            <div class="card" style="grid-column:1 / -1">
+                <h3><i class="fas fa-calculator"></i> Investment Calculator</h3>
+                <div class="calculator">
+                    <div class="row">
+                        <div style="flex:1">
+                            <label>Choose Plan</label>
+                            <select id="planSelect">
+                                <option value="short">Starter (30 Days)</option>
+                                <option value="mid">Professional (180 Days)</option>
+                                <option value="long">Enterprise (365 Days)</option>
+                            </select>
+                        </div>
+                        <div style="width:160px">
+                            <label>Duration (days)</label>
+                            <input id="duration" type="number" min="1" value="30" readonly />
+                        </div>
+                        <div style="width:160px">
+                            <label>Initial Amount (USD)</label>
+                            <input id="amount" type="number" min="100" value="1000" />
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div style="flex:1">
+                            <label>Expected Return (%)</label>
+                            <input id="returnP" type="number" step="0.01" value="5" readonly />
+                        </div>
+                        <div style="width:180px">
+                            <label>Compounding</label>
+                            <select id="compound" disabled>
+                                <option value="none">None (Fixed at Maturity)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row" style="align-items:center">
+                        <button class="btn" id="calc">Calculate</button>
+                        <button class="secondary" id="reset" onclick="location.reload()">Reset</button>
+                        <div class="small muted">Returns are calculated based on plan constants.</div>
+                    </div>
+                    <div class="results" id="results" style="display:none">
+                        <div><strong>Estimated Outcome</strong></div>
+                        <div id="estText" class="small" style="margin-top:8px"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" style="grid-column:1 / -1">
+                <h3><i class="fas fa-percentage"></i> Official Plan Rates</h3>
+                <table class="table">
+                    <thead>
+                        <tr><th>Plan</th><th>Duration</th><th>Interest Rate</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Starter</td><td>30 Days</td><td>5.00%</td></tr>
+                        <tr><td>Professional</td><td>180 Days</td><td>45.00%</td></tr>
+                        <tr><td>Enterprise</td><td>365 Days</td><td>120.00%</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <footer>
+            <div class="small muted" style="text-align:center; padding: 20px;">© 2026 TradePro • Professional Investing.</div>
+        </footer>
+    </div>
+
+    <div class="modal-backdrop" id="modalBackdrop">
+        <div class="modal" id="modalContent"></div>
+    </div>
+
+    <script src="/js/investment.js"></script>
+    <script>
+        // Simple UI script to update duration/return values when plan changes in calculator
+        $('#planSelect').on('change', function() {
+            const plan = $(this).val();
+            const vals = {
+                'short': { d: 30, r: 5, min: 100 },
+                'mid': { d: 180, r: 45, min: 5000 },
+                'long': { d: 365, r: 120, min: 20000 }
+            };
+            $('#duration').val(vals[plan].d);
+            $('#returnP').val(vals[plan].r);
+            $('#amount').val(vals[plan].min);
+        });
+    </script>
+</body>
+</html>

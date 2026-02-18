@@ -121,8 +121,8 @@ const authController = {
       }
       const token = generateToken(user);
       req.session.token = token
-      console.log("==============================")
-      console.log(req.session.token)
+      req.session.userId = user.id
+ 
       res.json({ success: true, data: { user: { id: user.id, email: user.email }, token } });
     } catch (err) {
       console.log(err)
@@ -160,8 +160,7 @@ const authController = {
   changePassword: async (req, res) => {
     try {
       const { old_password:oldPassword, new_password:newPassword } = req.body;
-      console.log("======================")
-      console.log(oldPassword, newPassword)
+
       const user = await User.findByPk(req.user.id);
       if (!user || !(await user.comparePassword(oldPassword))) {
         return res.status(400).json({ success: false, message: 'Current password incorrect' });

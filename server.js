@@ -1,43 +1,22 @@
 require('dotenv').config();
 const http = require('http');
-const express = require('express'); 
-// Area of change: Kept express-session for user state management
-const session = require('express-session');
-// Area of change: Removed 'cluster' and 'os' modules as they are no longer needed
-const jwt = require('jsonwebtoken');
-const cron = require('node-cron');
-const { Server } = require('socket.io');
-const { createClient } = require('redis');
-
+// AREA OF CHANGE: server.js should NOT redefine app middleware if app.js is required
 const app = require('./app'); 
+const { Server } = require('socket.io');
+const cron = require('node-cron');
+
 const { sequelize } = require('./src/models');
-const investmentService = require('./src/services/investmentService');
 const { processMaturedInvestments } = require('./src/workers/investmentWorker'); 
 const portfolioController = require('./src/controller/portfolioController');
 const logger = require('./src/utils/logger');
-// Area of change: Imported syncPlans from constants to allow auto-seeding
 const { syncPlans } = require('./src/config/constants');
 
-// Middleware for parsing form and JSON data
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+const PORT = process.env.PORT || 5000;
 
-// Area of change: Session Configuration (MemoryStore works fine now without clusters)
-app.use(session({
-    secret: process.env.SESSION_SECRET || 'crypto_pro_secret_key',
-    resave: false,
-    saveUninitialized: false,
-    cookie: { 
-        secure: process.env.NODE_ENV === 'production', 
-        maxAge: 24 * 60 * 60 * 1000 
-    }
-}));
-
-// Secure Proxy route
+// AREA OF CHANGE: Moved fetch logic inside the route to avoid initialization issues
 app.get('/api/proxy/cmc', async (req, res) => {
     try {
-        const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
-        
+        const { default: fetch } = await import('node-fetch');
         const response = await fetch('https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest?start=1&limit=10&convert=USD', {
             method: 'GET',
             headers: {
@@ -46,7 +25,6 @@ app.get('/api/proxy/cmc', async (req, res) => {
                 'Content-Type': 'application/json'
             }
         });
-
         const data = await response.json();
         res.json(data);
     } catch (error) {
@@ -55,49 +33,8 @@ app.get('/api/proxy/cmc', async (req, res) => {
     }
 });
 
-const PORT = process.env.PORT || 5000;
+// AREA OF CHANGE: Removed duplicate /api/auth/login. Ensure this logic is in src/routes/auth.routes.js
 
-// Area of change: Simplified login route; req.session now persists in a single process
-app.post('/api/auth/login', (req, res) => {
-    const { email, username, password } = req.body;
-    const identifier = email || username;
-    
-    if (identifier === "godwinlarry47@gmail.com" && password === "12345678") {
-        const token = jwt.sign({ id: 1 }, process.env.JWT_SECRET || 'your_jwt_secret', { expiresIn: '1d' });
-        
-        // Save token to session
-        req.session.token = token;
-
-        return res.json({
-            success: true,
-            message: "Login successful",
-            redirectUrl: "/dashboard"
-        });
-    } else {
-        return res.status(401).json({ 
-            success: false, 
-            message: "Invalid email or password" 
-        });
-    }
-});
-
-app.get('/login', (req, res) => {
-    res.redirect('/signin');
-});
-
-app.get('/signin', (req, res) => {
-    res.render('sign-in', { title: 'Sign In - TradePro' });
-});
-
-app.get('/logout', (req, res) => {
-    req.session.destroy((err) => {
-        if (err) logger.error('Logout error:', err);
-        res.clearCookie('connect.sid'); 
-        res.redirect('/signin');
-    });
-});
-
-// Area of change: Removed cluster-specific Master/Worker logic. Everything runs in one block.
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
@@ -106,18 +43,13 @@ const io = new Server(server, {
     }
 });
 
-// Area of change: Updated startServer to include the syncPlans logic
 const startServer = async () => {
     try {
         await sequelize.authenticate();
         await sequelize.sync({ force: false });
-        
-        // Area of change: Call the sync logic from constants to fix the "Plan not found" error
         await syncPlans(); 
-        
-        logger.info('✅ Database connected and Plans synced from constants');
+        logger.info('✅ Database connected and Plans synced');
 
-        // Start Cron Job
         if (process.env.NODE_ENV !== 'test') {
             cron.schedule('1 0 * * *', async () => {
                 try {
@@ -142,7 +74,8 @@ const startServer = async () => {
 io.on('connection', (socket) => {
     socket.on('authenticate', (token) => {
         try {
-            const decoded = jwt.verify(token, process.env.JWT_SECRET);
+            const jwt = require('jsonwebtoken');
+            const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your_jwt_secret');
             socket.join(`user_${decoded.id}`);
             socket.emit('authenticated', { status: 'success' });
         } catch (err) {
@@ -154,7 +87,6 @@ io.on('connection', (socket) => {
 startServer();
 
 const shutdown = async () => {
-    logger.info('Server shutting down...');
     server.close(async () => {
         await sequelize.close();
         process.exit(0);

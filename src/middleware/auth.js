@@ -4,57 +4,75 @@ const logger = require('../utils/logger');
 
 /**
  * Primary Authentication Middleware
- * Area of change: Cleaned up syntax and improved API vs Frontend response logic
+ * Optimized for TradePro Dashboard Access
  */
 const protect = async (req, res, next) => {
   try {
-    // Area of change: Safe access to session token
-    const token = req.session ? req.session.token : null;
+    // Area of change: Ensure session exists before accessing token
+    const token = (req.session && req.session.token) ? req.session.token : null;
     
     console.log("===================================");
-    console.log("Session Token Check:", token ? "Token Found" : "No Token");
+    console.log(`[AUTH CHECK] Path: ${req.originalUrl} | Token: ${token ? "Present" : "Missing"}`);
 
     if (!token) {
-      // Area of change: Only redirect if it's a direct browser page request
-      if (req.headers.accept?.includes('text/html') && !req.xhr) {
+      // AREA OF CHANGE: Improved redirect logic for browser-based dashboard access
+      const isBrowserRequest = req.headers.accept?.includes('text/html');
+      
+      if (isBrowserRequest) {
+        console.log("[AUTH] No token, redirecting browser to /signin");
         return res.redirect('/signin');
       }
-      return res.status(401).json({ success: false, message: 'Authentication required' });
-    }
-
-    // Verify token using secret from environment
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    const user = await User.findByPk(decoded.id);
-    if (!user) {
-      return res.status(401).json({ success: false, message: 'User no longer exists' });
-    }
-
-    // Check 'status' column
-    if (user.status !== 'active') {
-      return res.status(403).json({ 
+      
+      return res.status(401).json({ 
         success: false, 
-        message: 'Account is deactivated. Please contact support.' 
+        message: 'Authentication required. Please log in.' 
       });
     }
 
-    // Attach user to request object for use in controllers/EJS
+    // Verify token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // Area of change: Find user and include only necessary fields for speed
+    const user = await User.findByPk(decoded.id);
+    
+    if (!user) {
+      console.log("[AUTH] Token valid but user not found in database.");
+      if (req.session) req.session.token = null;
+      return res.redirect('/signin');
+    }
+
+    if (user.status !== 'active') {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Account is deactivated.' 
+      });
+    }
+
+    // Attach user to request
     req.user = user;
     req.token = token;
+    
+    // AREA OF CHANGE: Make user data available to EJS templates automatically
+    res.locals.user = user; 
+    
     next();
   } catch (error) {
+    // AREA OF CHANGE: Enhanced error handling for expired or malformed tokens
+    if (req.session) req.session.token = null;
+
     if (error.name === 'TokenExpiredError') {
-      // Area of change: Clear expired session and handle response type
-      if (req.session) req.session.token = null;
-      
-      if (req.headers.accept?.includes('text/html') && !req.xhr) {
-        return res.redirect('/signin');
+      logger.warn(`Session expired for user at ${req.ip}`);
+      if (req.headers.accept?.includes('text/html')) {
+        return res.redirect('/signin?error=expired');
       }
-      return res.status(401).json({ success: false, message: 'Session expired. Please login again.' });
+      return res.status(401).json({ success: false, message: 'Session expired' });
     }
     
     logger.error(`Auth Middleware Error: ${error.message}`);
-    res.status(401).json({ success: false, message: 'Invalid authentication token' });
+    if (req.headers.accept?.includes('text/html')) {
+      return res.redirect('/signin');
+    }
+    res.status(401).json({ success: false, message: 'Invalid session' });
   }
 };
 
@@ -69,6 +87,12 @@ const checkRole = (...allowedRoles) => {
 
     if (!allowedRoles.includes(req.user.role)) {
       logger.warn(`Unauthorized access attempt by ${req.user.email} on ${req.originalUrl}`);
+      
+      // AREA OF CHANGE: Handle HTML requests for unauthorized roles
+      if (req.headers.accept?.includes('text/html')) {
+        return res.status(403).send('Access Denied: You do not have permission to view this page.');
+      }
+      
       return res.status(403).json({ 
         success: false, 
         message: 'Access denied: Insufficient permissions' 
@@ -79,7 +103,6 @@ const checkRole = (...allowedRoles) => {
   };
 };
 
-// Exported admin role check
 const admin = checkRole('admin');
 
 module.exports = {

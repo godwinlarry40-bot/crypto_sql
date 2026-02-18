@@ -48,9 +48,9 @@ $(document).ready(function() {
 
         // Target elements
         const $loginBtn = $('#loginBtn');
-        const $loginError = $('#login-error'); // Added missing error div in logic
+        const $loginError = $('#login-error'); 
         const $successMessage = $('#login-success');
-        const email = $('#username').val().trim(); // Matches HTML ID 'username'
+        const email = $('#username').val().trim(); 
         const password = $('#password').val();
 
         // Area of change: Reset UI states with jQuery
@@ -67,14 +67,15 @@ $(document).ready(function() {
                 mode: loginMode 
             });
 
+            // Area of change: Fixed data access path to match server.js response
             if (response.data.success) {
-                // Area of change: Secure local storage update
-                localStorage.setItem('token', response.data.data.token);
-                localStorage.setItem('user', JSON.stringify(response.data.data.user));
+                if (response.data.token) {
+                    localStorage.setItem('token', response.data.token);
+                }
+                
                 localStorage.setItem('tradeMode', loginMode);
 
                 $successMessage.fadeIn().text("Login successful! Redirecting...");
-                
                 setTimeout(() => {
                     window.location.href = '/dashboard';
                 }, 1500);
@@ -85,7 +86,6 @@ $(document).ready(function() {
             // Area of change: Dynamic error reporting
             const errMsg = error.response?.data?.message || "Invalid email or password.";
             
-            // If you don't have a #login-error div, we can use an alert or inject one
             alert(errMsg); 
             
             // Reset button state
